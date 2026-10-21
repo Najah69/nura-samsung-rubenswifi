@@ -1,5 +1,27 @@
 # Journal des versions
 
+## À paraître — 1.0.1
+
+Ces corrections vivent dans le payload (`inject/`) ; une réinjection suffit, sans
+reconstruire le noyau. **L'image `v1.0` publiée ne les contient pas encore.**
+
+- **Kitty** (terminal moderne, kitty 0.48) entre dans les dépendances du paquet
+  `device-samsung-rubenswifi`, donc dans l'image. Il apparaît dans le menu
+  *Fichiers* et dans la barre de lancement rapide, avec son icône d'origine
+  (`/usr/share/icons/hicolor/256x256/apps/kitty.png`) : IceWM 4 lit les PNG via
+  Imlib2, vérifié sur la tablette.
+- **Fond de bureau réparé.** Le fichier `preferences` contenait
+  `DesktopBackgroundCenter = "/usr/share/icewm/themes/Infadel2/desktop.jpg"`.
+  Dans IceWM 4 cette clé est un **booléen** et ce JPEG n'existe pas dans l'image :
+  `icewmbg` refusait de démarrer (`Bad argument: … for DesktopBackgroundCenter
+  [0,1]`) et le bureau restait noir. La clé correcte est
+  `DesktopBackgroundImage`, avec l'image `fond-nura.png` livrée dans
+  `/usr/share/pixmaps` (et `DesktopBackgroundScaled = 1`).
+- **Où se règle le menu.** La session X tourne en root : IceWM lit
+  `/root/.icewm/`, et `inject.sh` y recopie `home/najah/.icewm/`. C'est donc le
+  fichier du payload qu'il faut modifier ; éditer seulement
+  `/home/najah/.icewm/menu` sur une tablette n'a aucun effet visible.
+
 ## 1.0 — 21 octobre 2026
 
 Première version publique. C'est aussi, à notre connaissance, la **première

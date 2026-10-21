@@ -101,6 +101,8 @@ install_file usr/share/pixmaps/keyboard48.png   usr/share/pixmaps/keyboard48.png
 # Le XPM est le format que la barre des taches d'IceWM lit toujours.
 install_file usr/share/pixmaps/orientation.xpm  usr/share/pixmaps/orientation.xpm  644
 install_file usr/share/pixmaps/keyboard.xpm     usr/share/pixmaps/keyboard.xpm     644
+# Fond du bureau peint par icewmbg (IceWM 4 : DesktopBackgroundImage).
+install_file usr/share/pixmaps/fond-nura.png    usr/share/pixmaps/fond-nura.png    644
 
 echo "--- unites systemd fournies ---"
 install_file etc/systemd/system/x11-icewm.service   etc/systemd/system/x11-icewm.service   644

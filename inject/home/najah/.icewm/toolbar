@@ -4,4 +4,5 @@
 
 prog "Basculer l'ecran" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh bascule
 prog "Clavier virtuel" /usr/share/pixmaps/keyboard.xpm /usr/local/bin/keyboard.sh bascule
-prog "Terminal" xterm-color xterm
+prog "Terminal (xterm)" /usr/share/pixmaps/xterm-color_32x32.xpm xterm
+prog "Kitty" /usr/share/icons/hicolor/256x256/apps/kitty.png /usr/bin/kitty -o font_size=12

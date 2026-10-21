@@ -23,6 +23,7 @@ depends="
 	fd
 	firefox
 	git
+	kitty
 	mc
 	nano
 	netsurf

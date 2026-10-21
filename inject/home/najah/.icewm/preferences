@@ -22,4 +22,10 @@ ToolTipFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
 DialogFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
 MessageFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
 
-DesktopBackgroundCenter = "/usr/share/icewm/themes/Infadel2/desktop.jpg"
+// Fond du bureau. IceWM 4 attend le chemin dans DesktopBackgroundImage ;
+// DesktopBackgroundCenter et DesktopBackgroundScaled sont des options vrai/faux.
+// (L ancienne cle DesktopBackgroundCenter a un chemin venait d IceWM 1.x : icewmbg
+// refusait de demarrer, d ou un bureau noir.)
+DesktopBackgroundImage = "/usr/share/pixmaps/fond-nura.png"
+DesktopBackgroundScaled = 1
+DesktopBackgroundCenter = 1

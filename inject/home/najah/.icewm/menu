@@ -24,7 +24,8 @@ menu "Fichiers" folder {
 	prog "Supports montes" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x20 -e /usr/local/bin/automount.sh etat
 	prog "Monter les supports" folder /usr/local/bin/automount.sh tout
 	prog "nano (editer un fichier)" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e nano
-	prog "Terminal" folder xterm
+	prog "Kitty (terminal moderne)" /usr/share/icons/hicolor/256x256/apps/kitty.png /usr/bin/kitty -o font_size=12
+	prog "Terminal (xterm, leger)" /usr/share/pixmaps/xterm-color_32x32.xpm xterm
 }
 
 menu "Ecran" folder {
