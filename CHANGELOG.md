@@ -1,5 +1,28 @@
 # Journal des versions
 
+## Correctifs à chaud — 21 octobre 2026
+
+Deux ajouts qui ne changent pas le noyau et qui s'appliquent sur une tablette
+déjà installée, donc sans reflasher.
+
+- **La taille des fenêtres est réparée** (`inject/usr/local/bin/dock-keyboard.sh`,
+  à appliquer avec le nouveau `inject/maj-clavier.sh`). Le clavier tactile
+  annonçait à IceWM une réserve d'espace de ~534 px en bas de l'écran alors
+  qu'il n'en occupe que 266 : IceWM ne laissait plus qu'une zone utile de
+  ~236 px, et **toute fenêtre ouverte s'affichait à 245 px de haut, collée en
+  bas de l'écran**. C'est ce qui donnait une fenêtre kitty de 25×25 pixels et
+  un Claude Code tronqué. `dock-keyboard.sh` retire maintenant `_NET_WM_STRUT`
+  et `_NET_WM_STRUT_PARTIAL` de la fenêtre du clavier après l'avoir ancrée ; le
+  clavier reste visible (il est remonté au premier plan).
+- **Claude Code en terminal** : nouveau `outils/installe-claude-code.sh`
+  (`sudo sh outils/installe-claude-code.sh` sur la tablette), entrée
+  « Claude Code (terminal) » dans le menu *Fichiers* et la barre de tâches, et
+  lanceur `/usr/local/bin/claude-tui`. Détails : version **1.0.128** (dernière
+  en JavaScript pur, aucune version 2.x n'existe pour armv7), `ripgrep` du
+  système déposé dans `vendor/ripgrep/arm-linux`, terminal **xterm**, et
+  **quinze secondes** avant le premier écran (requête réseau au démarrage).
+  L'authentification se fait une fois, par `/login` ou `ANTHROPIC_API_KEY`.
+
 ## 1.0.1 — 21 octobre 2026
 
 Corrections de l'image `v1.0`. Le noyau ne change pas : seuls le payload

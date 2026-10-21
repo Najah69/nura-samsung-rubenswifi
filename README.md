@@ -184,6 +184,7 @@ WSL), puis, **sur la tablette** :
 
 ```sh
 sudo sh inject/maj-locale.sh
+sudo sh inject/maj-clavier.sh
 sudo reboot
 ```
 
@@ -191,6 +192,14 @@ sudo reboot
 redémarre le clavier et relance IceWM ; il garde une copie de chaque fichier
 remplacé en `.avant-1.0.1`. Il ne touche ni aux comptes, ni aux mots de passe,
 ni au Wi-Fi.
+
+`maj-clavier.sh` corrige à lui seul la **taille des fenêtres** : le clavier
+tactile annonçait à IceWM une réserve d'espace de ~534 px en bas de l'écran
+alors qu'il n'en occupe que 266, si bien que toute fenêtre ouverte s'affichait
+sur 245 px de haut, collée en bas (kitty en 25×25 pixels, Claude Code tronqué).
+Le script remplace `dock-keyboard.sh` par la version qui retire cette réserve ;
+le fichier précédent est gardé en `.avant-strut`. Sans lui, les fenêtres restent
+minuscules — c'est la première chose à appliquer sur une tablette en 1.0.1.
 
 À ne pas confondre : `inject.sh` travaille sur le **fichier image**, sur
 l'ordinateur, pour fabriquer une image neuve. Lancé sur une tablette allumée, il
@@ -276,6 +285,36 @@ sudo apk update
 sudo apk add htop
 ```
 
+### Claude Code dans le terminal
+
+Claude Code (l'assistant d'Anthropic en mode texte) s'installe sur la tablette
+avec un seul script, puis s'ouvre depuis le menu **Fichiers → Claude Code
+(terminal)** ou la barre de tâches :
+
+```sh
+sudo sh outils/installe-claude-code.sh
+```
+
+Trois choses à savoir, toutes expliquées dans le script :
+
+- **la version installée est la 1.0.128, pas la dernière.** Depuis la 2.0,
+  Claude Code est un binaire natif compilé pour x86-64 et arm64 : il n'existe
+  rien pour l'armv7 de cette tablette. La 1.0.128 est la dernière version en
+  JavaScript pur, et elle fonctionne ici ;
+- **le `ripgrep` fourni avec Claude Code n'existe pas non plus en armv7** : le
+  script dépose celui du système (ripgrep 15.2.0) à l'emplacement attendu et
+  force `USE_BUILTIN_RIPGREP=0` ;
+- **le premier écran met une quinzaine de secondes à apparaître** (requête
+  réseau au démarrage). Le lanceur affiche un message d'attente pour éviter de
+  croire à un blocage.
+
+Il reste ensuite à s'authentifier, une seule fois : dans Claude Code, tapez
+`/login` (compte Anthropic), ou définissez `ANTHROPIC_API_KEY`. Sans cela, la
+réponse est `Invalid API key · Please run /login`.
+
+Le terminal utilisé est **xterm** : kitty démarre lentement ici et n'apporte
+rien sur un écran de 8 pouces.
+
 ### Éteindre proprement
 
 ```sh
@@ -330,7 +369,8 @@ pmaports  →  pmbootstrap install  →  inject.sh  →  prepare-image-publique.
 
 - `pmaports/` : le patch DTS, la config noyau, le paquet device.
 - `inject/` : ce qui est copié dans l'image (scripts, unités systemd, réglages).
-- `outils/` : fabrication de l'image publiable et flashage vérifié.
+- `outils/` : fabrication de l'image publiable, flashage vérifié, et
+  `installe-claude-code.sh` (Claude Code sur la tablette).
 
 ### Les trois difficultés du portage
 
@@ -350,10 +390,12 @@ pmaports  →  pmbootstrap install  →  inject.sh  →  prepare-image-publique.
 
 ```
 pmaports/     patch DTS (558 lignes), config noyau, paquet device, firmware WCNSS
-inject/       le payload (53 fichiers) : scripts, unités systemd, configurations,
-              plus inject.sh (fabrication de l'image) et maj-locale.sh
-              (mise à jour d'une tablette en marche), outils Python du DTS
-outils/       prepare-image-publique.sh, flash-userdata.sh
+inject/       le payload (54 fichiers) : scripts, unités systemd, configurations,
+              plus inject.sh (fabrication de l'image), maj-locale.sh et
+              maj-clavier.sh (mise à jour d'une tablette en marche), outils
+              Python du DTS
+outils/       prepare-image-publique.sh, flash-userdata.sh,
+              installe-claude-code.sh (Claude Code en terminal)
 docs/         installation, premier démarrage, utilisation, développement,
               connaissances brutes du chantier (CONNAISSANCES.md), état final
 ```

@@ -74,7 +74,21 @@ while [ "$n" -lt 2 ]; do
 	[ "$n" -lt 2 ] && sleep 1
 done
 
-# 3. Masquer d'eventuelles fenetres en double.
+# 3. Retirer la reserve d'espace (strut) que matchbox-keyboard annonce a IceWM.
+#    Il declare ~534 px en bas alors que le clavier n'en occupe que 266 : IceWM
+#    reduit la zone utile a ~236 px, et toute nouvelle fenetre s'ouvre alors a
+#    245 px de haut, collee en bas de l'ecran (kitty en 25x25, Claude Code
+#    tronque...). Le clavier reste visible : il est remonte apres chaque
+#    ouverture de fenetre, et les lanceurs le remettent au premier plan.
+if command -v xprop >/dev/null 2>&1; then
+	for w in $(xdotool search --name Keyboard 2>/dev/null); do
+		xprop -id "$w" -remove _NET_WM_STRUT_PARTIAL >/dev/null 2>&1
+		xprop -id "$w" -remove _NET_WM_STRUT >/dev/null 2>&1
+	done
+	echo "dock : reserve d'espace (strut) du clavier retiree"
+fi
+
+# 4. Masquer d'eventuelles fenetres en double.
 PREMIER=1
 for w in $(xdotool search --name Keyboard 2>/dev/null); do
 	if [ "$PREMIER" = 1 ]; then
