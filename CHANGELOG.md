@@ -4,7 +4,7 @@
 
 Corrections de l'image `v1.0`. Le noyau ne change pas : seuls le payload
 (`inject/`) et une dépendance du paquet `device-samsung-rubenswifi` bougent.
-Sur une tablette déjà installée, une réinjection suffit.
+Sur une tablette déjà installée, `inject/maj-locale.sh` suffit (voir plus bas).
 
 - **La racine ext4 grandit au démarrage.** L'initramfs agrandissait la partition
   (`mmcblk0p26`) mais pas le système de fichiers : la racine restait à
@@ -30,6 +30,12 @@ Sur une tablette déjà installée, une réinjection suffit.
   [0,1]`) et le bureau restait noir. La clé correcte est
   `DesktopBackgroundImage`, avec l'image `fond-nura.png` livrée dans
   `/usr/share/pixmaps` (et `DesktopBackgroundScaled = 1`).
+- **Mise à jour à chaud** : nouveau `inject/maj-locale.sh`, à lancer sur une
+  tablette déjà installée (`sudo sh inject/maj-locale.sh`). Il pose les fichiers
+  des correctifs, active les deux services, redémarre le clavier et relance
+  IceWM ; chaque fichier remplacé est conservé en `.avant-1.0.1`. `inject.sh`
+  reste réservé à la fabrication de l'image : il travaille sur le fichier image,
+  pas sur un système en marche.
 - **Où se règle le menu.** La session X tourne en root : IceWM lit
   `/root/.icewm/`, et `inject.sh` y recopie `home/najah/.icewm/`. C'est donc le
   fichier du payload qu'il faut modifier ; éditer seulement

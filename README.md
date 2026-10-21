@@ -176,6 +176,26 @@ C'est tout. La tablette est utilisable, sans compte Google, sans Android.
 
 ---
 
+### Mettre à jour sans reflasher
+
+Une correction de scripts ne demande pas de reflasher la tablette. Recopiez le
+dossier `inject/` de ce dépôt sur la tablette (clé USB, `scp`, dossier partagé de
+WSL), puis, **sur la tablette** :
+
+```sh
+sudo sh inject/maj-locale.sh
+sudo reboot
+```
+
+`maj-locale.sh` pose les scripts et les unités systemd, active les services,
+redémarre le clavier et relance IceWM ; il garde une copie de chaque fichier
+remplacé en `.avant-1.0.1`. Il ne touche ni aux comptes, ni aux mots de passe,
+ni au Wi-Fi.
+
+À ne pas confondre : `inject.sh` travaille sur le **fichier image**, sur
+l'ordinateur, pour fabriquer une image neuve. Lancé sur une tablette allumée, il
+ne trouve pas l'image et s'arrête.
+
 ## Le premier démarrage
 
 L'assistant ([docs/PREMIER-DEMARRAGE.md](docs/PREMIER-DEMARRAGE.md)) demande :
@@ -330,7 +350,9 @@ pmaports  →  pmbootstrap install  →  inject.sh  →  prepare-image-publique.
 
 ```
 pmaports/     patch DTS (558 lignes), config noyau, paquet device, firmware WCNSS
-inject/       41 fichiers de charge utile + inject.sh + outils Python du DTS
+inject/       le payload (53 fichiers) : scripts, unités systemd, configurations,
+              plus inject.sh (fabrication de l'image) et maj-locale.sh
+              (mise à jour d'une tablette en marche), outils Python du DTS
 outils/       prepare-image-publique.sh, flash-userdata.sh
 docs/         installation, premier démarrage, utilisation, développement,
               connaissances brutes du chantier (CONNAISSANCES.md), état final
