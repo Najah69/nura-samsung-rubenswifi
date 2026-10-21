@@ -1,0 +1,43 @@
+# Menu IceWM de la Galaxy Tab Active - v2 : tout au doigt, entree principale =
+# l'assistant Nura. Les outils restent accessibles dans les sous-menus.
+
+prog "Assistant Nura (configuration)" folder /usr/local/bin/nura-assistant --menu
+prog "Basculer l'ecran (paysage/portrait)" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh bascule
+prog "Clavier tactile (afficher/masquer)" /usr/share/pixmaps/keyboard.xpm /usr/local/bin/keyboard.sh bascule
+prog "Batterie" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x20 -e /usr/local/bin/batterie.sh
+
+menu "Web" folder {
+	prog "Netsurf (leger, rapide)" folder /usr/local/bin/navigateur.sh netsurf
+	prog "Firefox (sites modernes, lent)" folder /usr/local/bin/navigateur.sh firefox
+}
+
+menu "Reseau" folder {
+	prog "Choisir un reseau Wi-Fi" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e /usr/local/bin/wifi.sh scan
+	prog "Etat du Wi-Fi" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e /usr/local/bin/wifi.sh status
+	prog "Reseau USB : etat" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x24 -e /usr/local/bin/reseau-usb.sh etat
+	prog "Reseau USB : activer" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x24 -e /usr/local/bin/reseau-usb.sh up
+	prog "Reseau USB : couper" folder /usr/local/bin/reseau-usb.sh down
+}
+
+menu "Fichiers" folder {
+	prog "Midnight Commander" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e mc
+	prog "Supports montes" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x20 -e /usr/local/bin/automount.sh etat
+	prog "Monter les supports" folder /usr/local/bin/automount.sh tout
+	prog "nano (editer un fichier)" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e nano
+	prog "Terminal" folder xterm
+}
+
+menu "Ecran" folder {
+	prog "Paysage 1280x800" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh paysage
+	prog "Portrait 800x1280" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh portrait
+	prog "Etat de l'ecran" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e /usr/local/bin/orientation.sh etat
+}
+
+menu "Diagnostic" folder {
+	prog "Rapport complet" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e /usr/local/bin/x11-diag.sh
+	prog "Journaux du noyau" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e dmesg
+	prog "Etiquettes des entrees" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e cat /proc/bus/input/devices
+}
+
+prog "Redemarrer" system-reboot systemctl reboot
+prog "Eteindre" system-shutdown systemctl poweroff

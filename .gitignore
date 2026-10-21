@@ -1,0 +1,5 @@
+# Les images ne sont pas versionnees : elles sont trop grosses (1,74 Gio) et
+# publiees comme fichiers de version (release).
+*.img
+*.img.xz
+*.iso

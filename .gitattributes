@@ -1,0 +1,10 @@
+# Les scripts et fichiers de configuration partent sur une tablette Linux :
+# ils doivent garder leurs fins de ligne Unix (LF). Sans cette règle, un
+# « git clone » sous Windows les livrerait en CRLF et les scripts
+# échoueraient avec « bad interpreter: /bin/sh^M ».
+* text=auto eol=lf
+
+*.png binary
+*.img binary
+*.img.xz binary
+*.bin binary

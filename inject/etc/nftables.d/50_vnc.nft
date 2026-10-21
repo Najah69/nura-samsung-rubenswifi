@@ -1,0 +1,9 @@
+#!/usr/sbin/nft -f
+# Ouvre le port 5900 du partage d'ecran (x11vnc). Le jeu de regles de pmOS a une
+# politique "drop" sur l'entree et n'autorise que 22, 53, 53317, etc. Sans ce
+# fichier, VNC se connecte en local mais reste injoignable depuis le reseau.
+table inet filter {
+	chain input {
+		tcp dport 5900 accept comment "accept VNC (x11vnc)"
+	}
+}

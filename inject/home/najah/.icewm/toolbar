@@ -1,0 +1,7 @@
+# Barre de lancement rapide d'IceWM (partie gauche de la barre des taches).
+# Un appui sur l'icone bascule l'ecran entre paysage et portrait ;
+# l'autre affiche ou masque le clavier virtuel.
+
+prog "Basculer l'ecran" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh bascule
+prog "Clavier virtuel" /usr/share/pixmaps/keyboard.xpm /usr/local/bin/keyboard.sh bascule
+prog "Terminal" xterm-color xterm

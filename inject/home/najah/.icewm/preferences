@@ -1,0 +1,25 @@
+// Preferences IceWM — Galaxy Tab Active 8.0 (ecran 800x1280, usage tactile).
+// Police volontairement grande : l'ecran fait 800 px de large.
+
+TaskBarAutoHide = 0
+TaskBarAtTop = 1
+ShowTaskBar = 1
+TaskBarShowClock = 1
+TaskBarShowCPUStatus = 0
+// Barre de lancement rapide (l'icone d'orientation) a gauche de la barre.
+TaskBarShowToolBar = 1
+IconSize = 32
+TitleBarMaximized = 1
+MenuMaxHeight = 26
+WorkspaceNames = "POS"
+
+TaskBarFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
+TaskBarClockFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
+MenuFontName = "-*-dejavu sans-medium-r-normal-*-*-150-*-*-*-*-*-*"
+TitleFontName = "-*-dejavu sans-bold-r-normal-*-*-140-*-*-*-*-*-*"
+StatusFontName = "-*-dejavu sans-medium-r-normal-*-*-130-*-*-*-*-*-*"
+ToolTipFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
+DialogFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
+MessageFontName = "-*-dejavu sans-medium-r-normal-*-*-140-*-*-*-*-*-*"
+
+DesktopBackgroundCenter = "/usr/share/icewm/themes/Infadel2/desktop.jpg"

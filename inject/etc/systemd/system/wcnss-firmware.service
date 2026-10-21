@@ -1,0 +1,21 @@
+[Unit]
+Description=Installer le firmware WCNSS (Wi-Fi) de la Galaxy Tab Active 8.0
+Documentation=man:msm-firmware-loader(8)
+# Le chargeur generique de postmarketOS ne reconnait pas les noms de partitions
+# Samsung (majuscules) : il doit avoir tourne avant, pour que son dossier cible
+# existe, mais c'est nous qui remplissons ce dossier.
+After=msm-firmware-loader.service
+Before=network-pre.target NetworkManager.service
+DefaultDependencies=no
+RequiresMountsFor=/run /lib/firmware
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=180
+ExecStart=/usr/local/bin/load-wcnss-fw.sh
+StandardOutput=journal+console
+StandardError=journal+console
+
+[Install]
+WantedBy=sysinit.target

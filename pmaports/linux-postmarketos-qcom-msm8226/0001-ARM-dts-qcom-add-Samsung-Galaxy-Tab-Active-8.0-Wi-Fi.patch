@@ -1,0 +1,590 @@
+From 54c61f7b8d87f63fe3a57baa8b6f74b8c32ec646 Mon Sep 17 00:00:00 2001
+From: Najah <najah@localhost>
+Date: Mon, 19 Oct 2026 10:25:11 +0200
+Subject: [PATCH] ARM: dts: qcom: add Samsung Galaxy Tab Active 8.0 Wi-Fi
+ (SM-T360)
+
+---
+ arch/arm/boot/dts/qcom/Makefile               |   1 +
+ .../qcom/qcom-apq8026-samsung-rubenswifi.dts  | 524 ++++++++++++++++++
+ 2 files changed, 525 insertions(+)
+ create mode 100755 arch/arm/boot/dts/qcom/qcom-apq8026-samsung-rubenswifi.dts
+
+diff --git a/arch/arm/boot/dts/qcom/Makefile b/arch/arm/boot/dts/qcom/Makefile
+index 30d5dbb73..50389e5af 100644
+--- a/arch/arm/boot/dts/qcom/Makefile
++++ b/arch/arm/boot/dts/qcom/Makefile
+@@ -9,6 +9,7 @@ dtb-$(CONFIG_ARCH_QCOM) += \
+ 	qcom-apq8026-lg-lenok.dtb \
+ 	qcom-apq8026-samsung-matisse-wifi.dtb \
+ 	qcom-apq8026-samsung-milletwifi.dtb \
++	qcom-apq8026-samsung-rubenswifi.dtb \
+ 	qcom-apq8060-dragonboard.dtb \
+ 	qcom-apq8064-cm-qs600.dtb \
+ 	qcom-apq8064-ifc6410.dtb \
+diff --git a/arch/arm/boot/dts/qcom/qcom-apq8026-samsung-rubenswifi.dts b/arch/arm/boot/dts/qcom/qcom-apq8026-samsung-rubenswifi.dts
+new file mode 100755
+index 000000000..8beca0471
+--- /dev/null
+@@ -0,0 +1,558 @@
++// SPDX-License-Identifier: BSD-3-Clause
++/*
++ * Samsung Galaxy Tab Active 8.0 Wi-Fi (SM-T360, "rubenswifi")
++ *
++ * Base sur le noyau Samsung 3.4 fourni par la communaute rubenslte
++ * (arch/arm/boot/dts/msm8226/msm8226-sec-rubenswifieur-r04.dtsi) et sur
++ * le port mainline du Galaxy Tab 4 8.0 Wi-Fi (milletwifi, meme APQ8026).
++ *
++ * Peripheriques non cables ici, faute de pilote mainline :
++ *   ampli audio MAX98504, PMIC MAX77804K (chargeur/MUIC, jauge et
++ *   alimentation batterie : aucun pilote mainline, donc pas de
++ *   /sys/class/power_supply ni de charge pilotee), NFC PN547
++ *   (declare, pilote nxp-nci), camera.
++ */
++
++/dts-v1/;
++
++#include <dt-bindings/input/input.h>
++#include "qcom-msm8226.dtsi"
++#include "pm8226.dtsi"
++
++/*
++ * Samsung place les regions reservees autrement que le dtsi SoC
++ * (smem a 0xfa00000 et non 0x3000000) : on remplace les cinq noeuds
++ * par la carte du chargeur d'amorcage Samsung.
++ */
++/delete-node/ &adsp_region;
++/delete-node/ &mba_region;
++/delete-node/ &mpss_region;
++/delete-node/ &smem_region;
++/delete-node/ &wcnss_region;
++
++/ {
++	model = "Samsung Galaxy Tab Active 8.0 Wi-Fi";
++	compatible = "samsung,rubenswifi", "qcom,apq8026";
++	chassis-type = "tablet";
++
++	aliases {
++		display0 = &framebuffer0;
++		mmc0 = &sdhc_1; /* SDC1 eMMC slot */
++		mmc1 = &sdhc_2; /* SDC2 SD card slot */
++	};
++
++	chosen {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++
++		stdout-path = "display0";
++
++		/*
++		 * Memoire de l'ecran laissee allumee par le chargeur
++		 * d'amorcage : msm8226-mdss.dtsi reserve 0x03200000 + 0xFA0000.
++		 */
++		framebuffer0: framebuffer@3200000 {
++			compatible = "simple-framebuffer";
++			reg = <0x03200000 0x800000>;
++			width = <800>;
++			height = <1280>;
++			stride = <(800 * 3)>;
++			format = "r8g8b8";
++		};
++	};
++
++	gpio-keys {
++		compatible = "gpio-keys";
++		autorepeat;
++
++		key-home {
++			label = "Home";
++			gpios = <&tlmm 108 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_HOMEPAGE>;
++			debounce-interval = <15>;
++		};
++
++		key-back {
++			label = "Back";
++			gpios = <&tlmm 52 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_BACK>;
++			debounce-interval = <15>;
++		};
++
++		key-recent {
++			label = "Recent";
++			gpios = <&tlmm 49 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_MENU>;
++			debounce-interval = <15>;
++		};
++
++		key-volume-up {
++			label = "Volume Up";
++			gpios = <&tlmm 106 GPIO_ACTIVE_LOW>;
++			linux,code = <KEY_VOLUMEUP>;
++			debounce-interval = <15>;
++		};
++	};
++
++	i2c-backlight {
++		compatible = "i2c-gpio";
++		sda-gpios = <&tlmm 20 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
++		scl-gpios = <&tlmm 21 (GPIO_ACTIVE_HIGH|GPIO_OPEN_DRAIN)>;
++
++		pinctrl-0 = <&backlight_i2c_default_state>;
++		pinctrl-names = "default";
++
++		i2c-gpio,delay-us = <4>;
++
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		backlight@2c {
++			compatible = "ti,lp8556";
++			reg = <0x2c>;
++
++			dev-ctrl = /bits/ 8 <0x80>;
++			init-brt = /bits/ 8 <0x3f>;
++
++			rom-a3h {
++				rom-addr = /bits/ 8 <0xa3>;
++				rom-val = /bits/ 8 <0x5e>;
++			};
++
++			rom-a5h {
++				rom-addr = /bits/ 8 <0xa5>;
++				rom-val = /bits/ 8 <0x34>;
++			};
++
++			rom-a7h {
++				rom-addr = /bits/ 8 <0xa7>;
++				rom-val = /bits/ 8 <0xfa>;
++			};
++		};
++	};
++
++	reg_tsp_3p3v: regulator-tsp-3p3v {
++		compatible = "regulator-fixed";
++		regulator-name = "tsp_3p3v";
++		regulator-min-microvolt = <3300000>;
++		regulator-max-microvolt = <3300000>;
++
++		gpio = <&tlmm 31 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++
++		pinctrl-0 = <&tsp_en_default_state>;
++		pinctrl-names = "default";
++	};
++
++	reg_tsp_1p8v: regulator-tsp-1p8v {
++		compatible = "regulator-fixed";
++		regulator-name = "tsp_1p8v";
++		regulator-min-microvolt = <1800000>;
++		regulator-max-microvolt = <1800000>;
++
++		gpio = <&tlmm 114 GPIO_ACTIVE_HIGH>;
++		enable-active-high;
++
++		pinctrl-0 = <&tsp_en1_default_state>;
++		pinctrl-names = "default";
++	};
++
++	reserved-memory {
++		#address-cells = <1>;
++		#size-cells = <1>;
++		ranges;
++
++		framebuffer@3200000 {
++			reg = <0x03200000 0x800000>;
++			no-map;
++		};
++
++		mpss_region: mpss@8400000 {
++			reg = <0x08400000 0x1f00000>;
++			no-map;
++		};
++
++		mba_region: mba@a300000 {
++			reg = <0x0a300000 0x100000>;
++			no-map;
++		};
++
++		reserved@cb00000 {
++			reg = <0x0cb00000 0x700000>;
++			no-map;
++		};
++
++		wcnss_region: wcnss@d200000 {
++			reg = <0x0d200000 0x700000>;
++			no-map;
++		};
++
++		adsp_region: adsp@d900000 {
++			reg = <0x0d900000 0x1800000>;
++			no-map;
++		};
++
++		venus@f100000 {
++			reg = <0x0f100000 0x500000>;
++			no-map;
++		};
++
++		smem_region: smem@fa00000 {
++			reg = <0x0fa00000 0x100000>;
++			no-map;
++		};
++
++		reserved@fb00000 {
++			reg = <0x0fb00000 0x260000>;
++			no-map;
++		};
++
++		rfsa@fd60000 {
++			reg = <0x0fd60000 0x20000>;
++			no-map;
++		};
++
++		rmtfs@fd80000 {
++			compatible = "qcom,rmtfs-mem";
++			reg = <0x0fd80000 0x180000>;
++			no-map;
++
++			qcom,client-id = <1>;
++		};
++	};
++};
++
++/* NFC PN547 : bus BLSP1 QUP1, IRQ gpio 62, VEN gpio 23, FIRM gpio 24 */
++&blsp1_i2c1 {
++	status = "okay";
++
++	nfc@2b {
++		compatible = "nxp,pn547", "nxp,nxp-nci-i2c";
++		reg = <0x2b>;
++
++		interrupts-extended = <&tlmm 62 IRQ_TYPE_EDGE_RISING>;
++		enable-gpios = <&tlmm 23 GPIO_ACTIVE_HIGH>;
++		firmware-gpios = <&tlmm 24 GPIO_ACTIVE_HIGH>;
++
++		pinctrl-0 = <&nfc_int_default_state>, <&nfc_ven_default_state>;
++		pinctrl-names = "default";
++	};
++};
++
++/* Accelerometre + capteur de luminosite : bus BLSP1 QUP2 */
++&blsp1_i2c2 {
++	status = "okay";
++
++	accelerometer@1d {
++		compatible = "st,lis2hh12";
++		reg = <0x1d>;
++
++		interrupts-extended = <&tlmm 54 IRQ_TYPE_LEVEL_HIGH>;
++
++		pinctrl-0 = <&accel_int_default_state>;
++		pinctrl-names = "default";
++
++		vdd-supply = <&pm8226_l19>;
++		vddio-supply = <&pm8226_lvs1>;
++
++		/*
++		 * K2HH : reperes du noyau Samsung 3.4 (axis_map 1/0/2,
++		 * negate_y et negate_z), soit device = M x capteur.
++		 * A confirmer sur la tablette : a plat, ecran vers le haut,
++		 * in_accel_z doit etre positif.
++		 */
++		mount-matrix = "0", "1", "0",
++			       "-1", "0", "0",
++			       "0", "0", "-1";
++
++		st,drdy-int-pin = <1>;
++	};
++
++	light-sensor@10 {
++		compatible = "capella,cm3323";
++		reg = <0x10>;
++
++		vdd-supply = <&pm8226_l19>;
++	};
++};
++
++/* Bus BLSP1 QUP5 : ecran tactile Synaptics S5707 (RMI4) */
++&blsp1_i2c5 {
++	status = "okay";
++
++	touchscreen@20 {
++		compatible = "syna,rmi4-i2c";
++		reg = <0x20>;
++
++		interrupts-extended = <&tlmm 17 IRQ_TYPE_EDGE_FALLING>;
++
++		vdd-supply = <&reg_tsp_3p3v>;
++		vio-supply = <&reg_tsp_1p8v>;
++
++		syna,startup-delay-ms = <100>;
++		syna,reset-delay-ms = <20>;
++
++		pinctrl-0 = <&tsp_int_default_state>;
++		pinctrl-names = "default";
++
++		#address-cells = <1>;
++		#size-cells = <0>;
++	};
++};
++
++&pm8226_resin {
++	status = "okay";
++	linux,code = <KEY_VOLUMEDOWN>;
++};
++
++&rpm_requests {
++	regulators {
++		compatible = "qcom,rpm-pm8226-regulators";
++
++		pm8226_s3: s3 {
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1300000>;
++		};
++
++		pm8226_s4: s4 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++		};
++
++		pm8226_s5: s5 {
++			regulator-min-microvolt = <1150000>;
++			regulator-max-microvolt = <1150000>;
++		};
++
++		pm8226_l1: l1 {
++			regulator-min-microvolt = <1225000>;
++			regulator-max-microvolt = <1225000>;
++		};
++
++		pm8226_l2: l2 {
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++		};
++
++		pm8226_l3: l3 {
++			regulator-min-microvolt = <750000>;
++			regulator-max-microvolt = <1337500>;
++			regulator-always-on;
++		};
++
++		pm8226_l4: l4 {
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++		};
++
++		pm8226_l5: l5 {
++			regulator-min-microvolt = <1200000>;
++			regulator-max-microvolt = <1200000>;
++		};
++
++		pm8226_l6: l6 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-always-on;
++		};
++
++		pm8226_l7: l7 {
++			regulator-min-microvolt = <1850000>;
++			regulator-max-microvolt = <1850000>;
++		};
++
++		pm8226_l8: l8 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++			regulator-always-on;
++		};
++
++		pm8226_l9: l9 {
++			regulator-min-microvolt = <2050000>;
++			regulator-max-microvolt = <2050000>;
++		};
++
++		pm8226_l10: l10 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++		};
++
++		pm8226_l12: l12 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++		};
++
++		pm8226_l14: l14 {
++			regulator-min-microvolt = <2750000>;
++			regulator-max-microvolt = <2750000>;
++		};
++
++		pm8226_l15: l15 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3300000>;
++		};
++
++		pm8226_l16: l16 {
++			regulator-min-microvolt = <3000000>;
++			regulator-max-microvolt = <3350000>;
++		};
++
++		pm8226_l17: l17 {
++			regulator-min-microvolt = <2950000>;
++			regulator-max-microvolt = <2950000>;
++
++			regulator-system-load = <200000>;
++			regulator-allow-set-load;
++			regulator-always-on;
++		};
++
++		pm8226_l18: l18 {
++			regulator-min-microvolt = <2950000>;
++			regulator-max-microvolt = <2950000>;
++		};
++
++		pm8226_l19: l19 {
++			regulator-min-microvolt = <2850000>;
++			regulator-max-microvolt = <3000000>;
++		};
++
++		pm8226_l20: l20 {
++			regulator-min-microvolt = <3075000>;
++			regulator-max-microvolt = <3075000>;
++		};
++
++		pm8226_l21: l21 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2950000>;
++		};
++
++		pm8226_l22: l22 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3000000>;
++		};
++
++		pm8226_l23: l23 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <3300000>;
++		};
++
++		pm8226_l24: l24 {
++			regulator-min-microvolt = <1300000>;
++			regulator-max-microvolt = <1350000>;
++		};
++
++		pm8226_l25: l25 {
++			regulator-min-microvolt = <1775000>;
++			regulator-max-microvolt = <2125000>;
++		};
++
++		pm8226_l26: l26 {
++			regulator-min-microvolt = <1225000>;
++			regulator-max-microvolt = <1300000>;
++		};
++
++		pm8226_l27: l27 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <1800000>;
++		};
++
++		pm8226_l28: l28 {
++			regulator-min-microvolt = <1800000>;
++			regulator-max-microvolt = <2950000>;
++		};
++
++		pm8226_lvs1: lvs1 {};
++	};
++};
++
++&sdhc_1 {
++	vmmc-supply = <&pm8226_l17>;
++	vqmmc-supply = <&pm8226_l6>;
++
++	bus-width = <8>;
++	non-removable;
++
++	status = "okay";
++};
++
++&sdhc_2 {
++	vmmc-supply = <&pm8226_l18>;
++	vqmmc-supply = <&pm8226_l21>;
++
++	bus-width = <4>;
++	cd-gpios = <&tlmm 38 GPIO_ACTIVE_LOW>;
++
++	pinctrl-0 = <&sdhc2_default_state>, <&sdc2_cd_default_state>;
++	pinctrl-names = "default";
++
++	status = "okay";
++};
++
++&tlmm {
++	accel_int_default_state: accel-int-default-state {
++		pins = "gpio54";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	backlight_i2c_default_state: backlight-i2c-default-state {
++		pins = "gpio20", "gpio21";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	nfc_int_default_state: nfc-int-default-state {
++		pins = "gpio62";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-pull-up;
++	};
++
++	nfc_ven_default_state: nfc-ven-default-state {
++		pins = "gpio23", "gpio24";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	sdc2_cd_default_state: sdc2-cd-default-state {
++		pins = "gpio38";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	tsp_en_default_state: tsp-en-default-state {
++		pins = "gpio31";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	tsp_en1_default_state: tsp-en1-default-state {
++		pins = "gpio114";
++		function = "gpio";
++		drive-strength = <2>;
++		bias-disable;
++	};
++
++	tsp_int_default_state: tsp-int-default-state {
++		pins = "gpio17";
++		function = "gpio";
++		drive-strength = <10>;
++		bias-pull-up;
++	};
++};
++
++&usb {
++	dr_mode = "peripheral";
++	status = "okay";
++};
++
++&usb_hs_phy {
++	v1p8-supply = <&pm8226_l10>;
++	v3p3-supply = <&pm8226_l20>;
++};
+-- 
+2.53.0
+

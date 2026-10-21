@@ -1,0 +1,53 @@
+# Reference: <https://postmarketos.org/devicepkg>
+maintainer="Najah <najah@users.noreply.github.com>"
+pkgname=device-samsung-rubenswifi
+pkgdesc="Samsung Galaxy Tab Active 8.0 Wi-Fi"
+pkgver=1
+pkgrel=1
+url="https://postmarketos.org"
+license="MIT"
+arch="armv7"
+options="!check !archcheck"
+depends="
+	firmware-samsung-rubenswifi-wcnss-nv
+	linux-postmarketos-qcom-msm8226
+	mkbootimg
+	msm-firmware-loader
+	postmarketos-base
+	soc-qcom-msm8226
+	bash
+	bash-completion
+	build-base
+	ca-certificates
+	curl
+	fd
+	firefox
+	git
+	mc
+	nano
+	netsurf
+	patch
+	pkgconf
+	ripgrep
+	tar
+	unzip
+	wget
+	xz
+	zstd
+	"
+makedepends="devicepkg-dev"
+source="deviceinfo kernel-cmdline.conf modules-initfs"
+
+build() {
+	devicepkg_build $startdir $pkgname
+}
+
+package() {
+	devicepkg_package $startdir $pkgname
+}
+
+sha512sums="
+c3bd7b1c9161e7578e1390458830b403836d4b735d2eccad199a32da45eed7b0cec009b998e43966979816f3048462ad5a38ddb705bf38e31503b80b1ba7ea34  deviceinfo
+6872df49111d8034e4736d748f083eaa3c2e679e6377c78355f36bda7a180421bad5c4d03e08bd95d6960ac41d379a6329f06d804a79698f3e208d9e93d2f03b  kernel-cmdline.conf
+7007f9be678a96e4e8c7c6f56eeb59a7489a3ca4ceae00ce034cb32cc955bc2f2067dda5b833352f977cdf9dad035e5ea4afb58144ef8ccc2243d7877e8c8195  modules-initfs
+"

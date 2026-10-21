@@ -1,0 +1,46 @@
+#!/bin/sh
+# nura-config - reglages de la tablette Nura (fichier unique /etc/nura/assistant.conf)
+# usage : nura-config get CLE [defaut] | set CLE VALEUR | list | reset
+CONF=/etc/nura/assistant.conf
+
+defaut() {
+	case "$1" in
+	KB_LAYOUT)     echo fr ;;
+	TZ)            echo Europe/Paris ;;
+	NOM)           echo rubenswifi ;;
+	USER_LOGIN)    echo najah ;;
+	CLAVIER)       echo on ;;
+	ORIENTATION)   echo paysage ;;
+	AUTOMOUNT)     echo 1 ;;
+	WIFI_AUTO)     echo 1 ;;
+	RESEAU_USB)    echo 0 ;;
+	ECRAN_VEILLE)  echo 0 ;;
+	ASSISTANT_DONE) echo 0 ;;
+	*)             echo "" ;;
+	esac
+}
+
+case "$1" in
+get)
+	v=$(sed -n "s/^$2=//p" "$CONF" 2>/dev/null | tail -1)
+	if [ -n "$v" ]; then echo "$v"; else
+		if [ -n "${3:-}" ]; then echo "$3"; else defaut "$2"; fi
+	fi
+	;;
+set)
+	mkdir -p /etc/nura
+	[ -f "$CONF" ] || : >"$CONF"
+	sed -i "/^$2=/d" "$CONF" 2>/dev/null
+	printf '%s=%s\n' "$2" "$3" >>"$CONF"
+	;;
+list)
+	[ -f "$CONF" ] && cat "$CONF"
+	;;
+reset)
+	rm -f "$CONF"
+	;;
+*)
+	echo "usage: nura-config get CLE [defaut] | set CLE VALEUR | list | reset" >&2
+	exit 1
+	;;
+esac

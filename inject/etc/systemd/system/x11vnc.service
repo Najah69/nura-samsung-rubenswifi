@@ -1,0 +1,26 @@
+[Unit]
+Description=Partage de l'ecran X par VNC (x11vnc)
+After=x11-icewm.service NetworkManager.service
+Wants=x11-icewm.service
+
+[Service]
+Type=simple
+# Le fichier d'authentification de X change a chaque demarrage : startx lance
+# Xorg avec un fichier temporaire (/root/.serverauth.<pid>). Un chemin fixe
+# (/root/.Xauthority) ne contient donc pas le bon cookie et x11vnc ecoute sur
+# 5900 sans jamais obtenir l'ecran ("Authorization required"), tandis que
+# "-auth guess" echoue faute de HOME. Le lanceur retrouve le bon fichier dans
+# la ligne de commande de Xorg (constate le 21/10/2026).
+Environment=HOME=/root
+ExecStartPre=-/bin/mkdir -p /root/.vnc
+# Mot de passe VNC regenere a chaque demarrage. 147147 est la valeur des images
+# postmarketOS : a changer (x11vnc -storepasswd MONMOTDEPASSE /root/.vnc/passwd).
+ExecStartPre=-/usr/bin/x11vnc -storepasswd 147147 /root/.vnc/passwd
+ExecStart=/usr/local/bin/x11vnc-start.sh
+Restart=on-failure
+RestartSec=10
+# x11vnc n'a pas besoin de privileges systeme au-dela de X.
+Nice=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,752 @@
+#!/bin/sh
+# nura-assistant - assistant de premier demarrage de la tablette Nura
+# (Samsung Galaxy Tab Active 8.0 Wi-Fi, samsung-rubenswifi)
+#
+# Lance au premier demarrage par ~/.xinitrc, puis accessible depuis le menu Nura.
+# Interface : whiptail dans un xterm (aucun paquet supplementaire).
+# Reglages : /etc/nura/assistant.conf  (voir nura-config)
+set -u
+
+TITRE="Assistant Nura"
+CONF=/etc/nura/assistant.conf
+ETAT=/var/lib/nura/assistant.done
+LOG=/var/log/nura-assistant.log
+CFG=/usr/local/bin/nura-config
+BIN=/usr/local/bin
+SKB=0
+
+log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S')" "$*" >>"$LOG" 2>/dev/null; }
+
+# --------------------------------------------------------------- privileges
+if [ "$(id -u)" != 0 ]; then
+	exec sudo -n "$0" "$@"
+fi
+: "${DISPLAY:=:0}"; export DISPLAY
+if [ -z "${XAUTHORITY:-}" ] && [ -f /root/.Xauthority ]; then
+	XAUTHORITY=/root/.Xauthority; export XAUTHORITY
+fi
+
+# --------------------------------------------------- sans terminal : xterm
+# Les modes non interactifs (--scan, --aide) ne doivent pas ouvrir de fenetre.
+case "${1:-}" in
+--scan | --aide | -h | --help) INTERACTIF=0 ;;
+*) INTERACTIF=1 ;;
+esac
+
+if [ "$INTERACTIF" = 1 ] && [ -z "${NURA_TUI:-}" ]; then
+	if ! command -v xterm >/dev/null 2>&1; then
+		echo "xterm est absent : impossible d'afficher l'assistant." >&2
+		exit 1
+	fi
+	NURA_TUI=1; export NURA_TUI
+	# Police volontairement grande : l'ecran fait 8 pouces et se touche.
+	# Geometrie large plutot que -fullscreen : une fenetre plein ecran passe
+	# AU-DESSUS du clavier tactile (verifie a l'ecran), qui devenait inutilisable.
+	# ATTENTION : avec -fs 15 une cellule fait ~12x24 px ; 141x42 faisait donc
+	# ~1690x1000 px, plus haut que le panneau (1280x800). Le bas de la fenetre
+	# sortait de l'ecran et le bouton OK des boites devenait intouchable
+	# (constate le 21/10/2026). 100x26 tient : ~1200x624 px.
+	xterm -fa 'DejaVu Sans Mono' -fs 15 -bg '#0b1b2b' -fg '#e8f0f8' -b 2 \
+		-title "$TITRE" -geometry 100x26+0+0 -e "$0" "$@" &
+	XT=$!
+	# Le clavier est desormais gere par l'enfant, UNE SEULE FOIS, dans
+	# preparer_ecran(). Ce lanceur n'y touche plus : cacher ici (pour les menus)
+	# puis remontrer la-bas produisait une course au demarrage ou, selon l'ordre,
+	# le clavier restait masque -- donc la tablette sans aucun moyen de saisie
+	# (constate le 21/10/2026). Le bas de l'ecran est resserve une fois pour
+	# toutes par retrecir(), et les boites s'adaptent a cette hauteur.
+	wait "$XT"
+	exit $?
+fi
+
+command -v whiptail >/dev/null 2>&1 || {
+	echo "whiptail est absent : impossible d'afficher l'assistant." >&2
+	exit 1
+}
+
+NEWT_COLORS="${NEWT_COLORS:-root=,black;window=,black;border=white,black;shadow=black,black;textbox=white,black;button=black,white;actbutton=black,green;listbox=white,black;actsellistbox=black,green;title=green,black;roottext=green,black}"
+export NEWT_COLORS
+
+# ------------------------------------------------------------------ helpers
+# Tailles explicites : sur cette image whiptail n'auto-dimensionne pas ses
+# boites (0 0 donne une boite trop courte, texte tronque avec ascenseur).
+# MAIS une hauteur fixe plus grande que le terminal coupe le bas de la boite :
+# le bouton OK sort de la fenetre et devient intouchable (constate le
+# 21/10/2026 a l'ecran). On borne donc TOUJOURS par la taille reelle du
+# terminal, et on la relit pour chaque boite (la fenetre change de hauteur
+# quand le clavier tactile monte ou descend).
+TAILLE=0
+taille() { # (re)lit lignes/colonnes du terminal
+	L=$(tput lines 2>/dev/null) || L=24
+	C=$(tput cols 2>/dev/null) || C=80
+	case "$L" in ''|*[!0-9]*) L=24 ;; esac
+	case "$C" in ''|*[!0-9]*) C=80 ;; esac
+	[ "$L" -lt 12 ] && L=12
+	[ "$C" -lt 44 ] && C=44
+	# bordures (2) + barre de titre du gestionnaire de fenetres + marge
+	H_MAX=$((L - 3))
+	[ "$H_MAX" -gt 22 ] && H_MAX=22
+	[ "$H_MAX" -lt 9 ] && H_MAX=9
+	COLS=$((C - 4))
+	[ "$COLS" -gt 92 ] && COLS=92
+	TAILLE=1
+}
+taille
+# Nombre de lignes de liste qu'une boite peut montrer sans deborder.
+li() { _n=$1; _m=$((H_MAX-5)); [ "$_m" -lt 1 ] && _m=1
+       [ "$_n" -gt "$_m" ] && _n=$_m; printf '%s\n' "$_n"; }
+hb() { _n=$1; [ "$_n" -gt "$H_MAX" ] && _n=$H_MAX; [ "$_n" -lt 8 ] && _n=8
+       printf '%s\n' "$_n"; }
+msg()    { taille; whiptail --title "$TITRE" --msgbox "$1" "$H_MAX" "$COLS"; }
+info()   { taille; _c=$COLS; [ "$_c" -gt 60 ] && _c=60
+           whiptail --title "$TITRE" --infobox "$1" 8 "$_c"; }
+oui()    { taille; _h=$((H_MAX-2)); [ "$_h" -lt 8 ] && _h=8
+           whiptail --title "$TITRE" --yesno "$1" "$_h" "$COLS"; }
+oui_non(){ oui "$1"; }
+
+# Toute saisie de texte remonte le clavier tactile le temps de la boite, puis le
+# range : pendant les menus il masquerait le bas des dialogues (bouton OK).
+# Le clavier etant tue puis relance, il faut compter ~3 s : c'est le prix d'un
+# ecran de 8 pouces ou rien d'autre ne peut taper.
+# ATTENTION (constate a l'ecran le 21/10/2026) : monter et ranger le clavier a
+# CHAQUE champ de saisie faisait tuer puis relancer matchbox-keyboard plusieurs
+# fois de suite, et la fenetre etait redimensionnee deux fois par champ. Sur un
+# ecran de 8 pouces, cela donnait une fenetre qui "devient folle" (clignotement
+# et redimensionnements en rafale). Le clavier est donc affiche UNE SEULE FOIS
+# au demarrage de l'assistant, la fenetre est retrecie UNE SEULE FOIS, et plus
+# rien ne bouge ensuite : ni les saisies, ni les menus.
+saisie() {
+	_rep=""
+	taille
+	_rep=$(whiptail --title "$TITRE" --inputbox "$1" "$(hb 12)" $COLS "${2:-}" 3>&1 1>&2 2>&3) || return 1
+	printf '%s\n' "$_rep"
+}
+secret() {
+	_rep=""
+	taille
+	_rep=$(whiptail --title "$TITRE" --passwordbox "$1" "$(hb 12)" $COLS 3>&1 1>&2 2>&3) || return 1
+	printf '%s\n' "$_rep"
+}
+
+# Le clavier n'est affiche que pendant une saisie de texte : le laisser pendant
+# les menus recouvrirait le bas des boites (bouton OK). Pendant la saisie, on
+# raccourcit la fenetre pour que la boite reste au-dessus du clavier.
+fen()  { xdotool search --name "^$TITRE\$" 2>/dev/null | head -1; }
+ecran() { xdotool getdisplaygeometry 2>/dev/null; }
+
+retrecir() { # laisse le bas de l'ecran au clavier tactile
+	command -v xdotool >/dev/null 2>&1 || return 0
+	w=$(fen); [ -n "$w" ] || return 0
+	g=$(ecran); [ -n "$g" ] || return 0
+	sw=${g% *}; sh=${g#* }
+	kh=$((sh * 42 / 100))
+	hh=$((sh - kh - 56))
+	[ "$hh" -lt 200 ] && hh=200
+	xdotool windowsize "$w" "$sw" "$hh" 2>/dev/null
+	log "fenetre ${sw}x${hh} (clavier ${kh})"
+}
+elargir() { # rend toute la hauteur a la fenetre
+	command -v xdotool >/dev/null 2>&1 || return 0
+	w=$(fen); [ -n "$w" ] || return 0
+	g=$(ecran); [ -n "$g" ] || return 0
+	sw=${g% *}; sh=${g#* }
+	xdotool windowsize "$w" "$sw" "$((sh - 52))" 2>/dev/null
+}
+
+clavier_on()  { SKB=1; }
+clavier_off() { SKB=0; }
+
+# Mise en place de l'ecran, UNE SEULE FOIS, avant la premiere boite :
+#   1. on retrecit la fenetre pour reserver la hauteur du clavier tactile ;
+#   2. on affiche le clavier ;
+#   3. on attend qu'il soit place, puis on relit la taille du terminal.
+# Tout le reste de l'assistant s'adapte a cette geometrie sans y toucher.
+preparer_ecran() {
+	retrecir
+	sleep 1
+	if [ "$($CFG get CLAVIER 2>/dev/null)" != off ]; then
+		"$BIN/keyboard.sh" on >/dev/null 2>&1
+	fi
+	sleep 2
+	taille
+	log "ecran pret : ${H_MAX} lignes utiles, ${COLS} colonnes"
+}
+preparer_ecran
+
+# --------------------------------------------------------------- etape 0
+etape_bienvenue() {
+	log "bienvenue"
+	# Etat du reseau affiche des l'accueil : c'est la premiere chose utile a
+	# savoir (et la seule facon de joindre la tablette a distance si le tactile
+	# ou le clavier posaient probleme).
+	_msg_reseau="Wi-Fi         : "
+	if ip link show wlan0 >/dev/null 2>&1; then
+		_ip=$(wifi_ip)
+		if [ -n "$_ip" ]; then
+			_msg_reseau="${_msg_reseau}connecte, adresse $_ip"
+		else
+			_msg_reseau="${_msg_reseau}wlan0 present mais sans adresse"
+		fi
+	else
+		_msg_reseau="${_msg_reseau}pas de carte wlan0"
+	fi
+	log "reseau a l'accueil : $_msg_reseau"
+
+	msg "Bienvenue sur Nura !
+
+Cet assistant configure votre tablette en quelques etapes :
+
+  • le clavier et la langue
+  • le nom de la tablette et votre compte
+  • le Wi-Fi de la maison
+  • le reseau par cable USB, les cartes SD et les cles USB
+  • le clavier tactile et l'orientation de l'ecran
+
+$_msg_reseau
+
+Tout se fait au doigt. Vous pourrez revenir sur chaque reglage
+plus tard depuis le menu Nura.
+
+Touchez OK pour commencer."
+}
+
+# --------------------------------------------------------------- etape 1
+# Ecrit la disposition dans la conf Xorg : c'est elle que le serveur X lit au
+# demarrage (setxkbmap n'est pas installe sur cette image, xkbcomp/localectl oui).
+ecrire_clavier() {
+	layout=$1
+	f=/etc/X11/xorg.conf.d/99-keyboard.conf
+	mkdir -p /etc/X11/xorg.conf.d
+	{
+		echo 'Section "InputClass"'
+		echo '	Identifier "keyboard"'
+		echo '	MatchIsKeyboard "on"'
+		printf '	Option "XkbLayout" "%s"\n' "$layout"
+		echo 'EndSection'
+	} >"$f"
+}
+
+etape_clavier() {
+	log "clavier"
+	choix=$(whiptail --title "$TITRE" --menu \
+		"Disposition du clavier" "$H_MAX" $COLS "$(li 6)" \
+		fr "Francais - AZERTY" \
+		us "Anglais - QWERTY" \
+		de "Allemand - QWERTZ" \
+		es "Espagnol" \
+		ar "Arabe" 3>&1 1>&2 2>&3) || return 0
+	[ "$choix" = "$($CFG get KB_LAYOUT)" ] && return 0
+	$CFG set KB_LAYOUT "$choix"
+	ecrire_clavier "$choix"
+	log "KB_LAYOUT=$choix"
+	if command -v setxkbmap >/dev/null 2>&1; then
+		setxkbmap "$choix" 2>/dev/null
+		msg "Disposition appliquee : $choix"
+	else
+		msg "Disposition « $choix » enregistree.
+
+Elle sera active au prochain demarrage de la session graphique
+(redemarrez la tablette, ou utilisez menu Nura > Redemarrer)."
+	fi
+}
+
+# --------------------------------------------------------------- etape 2
+etape_fuseau() {
+	log "fuseau"
+	choix=$(whiptail --title "$TITRE" --menu \
+		"Fuseau horaire" "$H_MAX" $COLS "$(li 10)" \
+		Europe/Paris   "France" \
+		Africa/Algiers "Algerie" \
+		Africa/Casablanca "Maroc" \
+		Africa/Tunis   "Tunisie" \
+		Europe/Brussels "Belgique" \
+		Europe/Zurich  "Suisse" \
+		America/Montreal "Canada (Est)" \
+		UTC            "Temps universel" 3>&1 1>&2 2>&3) || return 0
+	if [ -f "/usr/share/zoneinfo/$choix" ]; then
+		ln -sf "/usr/share/zoneinfo/$choix" /etc/localtime
+		printf '%s\n' "$choix" >/etc/timezone
+		$CFG set TZ "$choix"
+		hwclock --systohc 2>/dev/null
+		log "TZ=$choix"
+	else
+		msg "Zone introuvable : $choix"
+	fi
+}
+
+# --------------------------------------------------------------- etape 3
+etape_nom() {
+	log "nom"
+	nom=$(saisie "Nom de la tablette sur le reseau (lettres, chiffres et tirets)" \
+		"$($CFG get NOM)") || return 0
+	case "$nom" in
+	"" | *[!A-Za-z0-9-]*)
+		msg "Nom invalide : utilisez des lettres, des chiffres ou des tirets."
+		return 0 ;;
+	esac
+	printf '%s\n' "$nom" >/etc/hostname
+	# PAS de `hostname "$nom"` ici : changer le nom a chaud casse le cookie X.
+	# startx enregistre le cookie sous "<nom>/unix:0" ; si le nom change dans la
+	# session, X refuse ensuite tout nouveau client -- x11vnc (VNC) et xrandr
+	# tombent en "Authorization required" (constate le 21/10/2026). Le nom
+	# s'appliquera donc au redemarrage, ce qui est aussi le comportement attendu
+	# d'un changement de nom d'hote.
+	if grep -q '^127\.0\.1\.1' /etc/hosts 2>/dev/null; then
+		sed -i "s/^127\.0\.1\.1.*/127.0.1.1\t$nom/" /etc/hosts
+	else
+		printf '127.0.1.1\t%s\n' "$nom" >>/etc/hosts
+	fi
+	$CFG set NOM "$nom"
+	log "NOM=$nom (applique au redemarrage)"
+}
+
+# --------------------------------------------------------------- etape 4
+etape_compte() {
+	log "compte"
+	login=$(saisie "Nom du compte utilisateur (minuscules)" "$($CFG get USER_LOGIN)") || return 0
+	case "$login" in
+	"" | [0-9]* | *[!a-z0-9_-]*)
+		msg "Nom invalide : minuscules, chiffres, tiret et souligne uniquement."
+		return 0 ;;
+	esac
+
+	if ! id "$login" >/dev/null 2>&1; then
+		# bash s'il est la (c'est le cas sur l'image v2), sinon ash.
+		if [ -x /bin/bash ]; then _shl=/bin/bash; else _shl=/bin/ash; fi
+		adduser -D -s "$_shl" "$login" || { msg "Creation du compte impossible."; return 0; }
+		log "compte cree : $login"
+	fi
+	for g in wheel audio video netdev plugdev; do
+		addgroup "$login" "$g" 2>/dev/null
+	done
+
+	p1=$(secret "Mot de passe de $login") || return 0
+	p2=$(secret "Repetez le mot de passe") || return 0
+	if [ "$p1" != "$p2" ]; then
+		msg "Les deux mots de passe ne correspondent pas. Rien n'a ete change."
+		return 0
+	fi
+	if [ ${#p1} -lt 4 ]; then
+		msg "Mot de passe trop court (4 caracteres minimum)."
+		return 0
+	fi
+	printf '%s:%s\n' "$login" "$p1" | chpasswd || { msg "Le mot de passe n'a pas pu etre enregistre."; return 0; }
+
+	mkdir -p /etc/sudoers.d
+	printf '%%wheel ALL=(ALL) NOPASSWD: ALL\n' >/etc/sudoers.d/10-wheel
+	chmod 440 /etc/sudoers.d/10-wheel
+	$CFG set USER_LOGIN "$login"
+	log "mot de passe change pour $login"
+	msg "Le compte « $login » est pret.
+Il peut utiliser sudo sans retaper son mot de passe."
+}
+
+# --------------------------------------------------------------- Wi-Fi
+wifi_present() { ip link show wlan0 >/dev/null 2>&1; }
+
+wifi_scan() { # ecrit /tmp/nura-ssid.txt : "<dBm><TAB><SSID>" ; affiche le nombre
+	TAB=$(printf '\t')
+	ip link set wlan0 up 2>/dev/null
+
+	# 1) wpa_supplicant : format stable, deja trie par lui
+	wpa_cli -i wlan0 scan >/dev/null 2>&1
+	sleep 2
+	wpa_cli -i wlan0 scan_results 2>/dev/null |
+		awk 'BEGIN { }
+			/^bssid/ { next }
+			{
+				n = split($0, f, "\t")
+				if (n < 5) next
+				s = f[5]
+				gsub(/\\x00/, "", s)
+				if (s == "") next
+				if (vu[s]++) next
+				printf "%d\t%s\n", f[3] + 0, s
+			}' >/tmp/nura-ssid.txt
+
+	# 2) a defaut, iw. Attention : busybox awk ne connait pas \t dans [ \t ],
+	# d'ou [[:space:]] (c'etait le bug de la premiere version).
+	if [ ! -s /tmp/nura-ssid.txt ]; then
+		iw dev wlan0 scan 2>/dev/null | awk '
+			function fin() {
+				if (ssid != "" && !vu[ssid]++) printf "%d\t%s\n", sig, ssid
+				ssid = ""; sig = -99
+			}
+			{
+				l = $0
+				sub(/^[[:space:]]+/, "", l)
+				if (l ~ /^BSS /)    { fin(); next }
+				if (l ~ /^signal:/) { split(l, a, " "); sig = a[2] + 0; next }
+				if (l ~ /^SSID:/)   { s = substr(l, 6); sub(/^[[:space:]]+/, "", s); sub(/[[:space:]]+$/, "", s); ssid = s; next }
+			}
+			END { fin() }' >/tmp/nura-ssid.txt
+	fi
+
+	sort -t "$TAB" -k1,1nr /tmp/nura-ssid.txt 2>/dev/null | head -20 >/tmp/nura-ssid.tri
+	mv /tmp/nura-ssid.tri /tmp/nura-ssid.txt
+	wc -l </tmp/nura-ssid.txt | tr -d ' '
+}
+
+wifi_regenere() { # reconstruit wpa_supplicant-wlan0.conf depuis /etc/nura/wifi/
+	out=/etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+	mkdir -p /etc/wpa_supplicant /etc/nura/wifi
+	{
+		echo "ctrl_interface=/run/wpa_supplicant"
+		echo "update_config=1"
+		echo "ap_scan=1"
+		p=9
+		for f in /etc/nura/wifi/*.conf; do
+			[ -f "$f" ] || continue
+			awk -v pr="$p" '{ print } /^network=\{/ { print "\tpriority=" pr; }' "$f"
+			p=$((p - 1))
+		done
+	} >"$out"
+	chmod 600 "$out"
+}
+
+wifi_enregistrer() { # $1 = ssid, $2 = mot de passe (vide = ouvert)
+	ssid=$1; psk=$2
+	dir=/etc/nura/wifi
+	mkdir -p "$dir"
+	f="$dir/$(printf '%s' "$ssid" | md5sum | cut -c1-8).conf"
+	if [ -n "$psk" ]; then
+		# wpa_passphrase ecrit le mot de passe en clair dans un commentaire
+		# (#psk="...") : on le retire, seule l'empreinte doit rester.
+		wpa_passphrase "$ssid" "$psk" |
+			sed -n '/^network=/,$p' |
+			sed '/^[[:space:]]*#psk=/d' >"$f"
+	else
+		{
+			echo "network={"
+			printf '\tssid="%s"\n' "$ssid"
+			echo "	key_mgmt=NONE"
+			echo "}"
+		} >"$f"
+	fi
+	wifi_regenere
+	log "wifi enregistre : $ssid"
+}
+
+wifi_relance() {
+	ip link set wlan0 up 2>/dev/null
+	if systemctl restart wpa-wlan0 2>/dev/null; then :;
+	elif systemctl restart wpa_supplicant 2>/dev/null; then :;
+	else
+		pkill -x wpa_supplicant 2>/dev/null
+		sleep 1
+		wpa_supplicant -B -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant-wlan0.conf 2>/dev/null
+	fi
+	sleep 2
+	if ! systemctl restart wifi-dhcp 2>/dev/null; then
+		udhcpc -i wlan0 -q -n -t 5 >/dev/null 2>&1
+	fi
+}
+
+wifi_ip() { ip -4 -o addr show wlan0 2>/dev/null | awk '{print $4}' | cut -d/ -f1; }
+
+wifi_attendre_ip() { # 25 s max
+	i=0
+	while [ $i -lt 25 ]; do
+		ip=$(wifi_ip)
+		[ -n "$ip" ] && { echo "$ip"; return 0; }
+		sleep 1; i=$((i + 1))
+	done
+	return 1
+}
+
+wifi_connecter() { # $1 ssid, $2 mdp -> 0 si connecte
+	ssid=$1; psk=$2
+	info "Connexion a « $ssid »..."
+	wifi_enregistrer "$ssid" "$psk"
+	wifi_relance
+	ip=$(wifi_attendre_ip) || return 1
+	echo "$ip" >/tmp/nura-wifi-ip
+	log "wifi connecte : $ssid $ip"
+	return 0
+}
+
+etape_wifi() {
+	log "wifi"
+	if ! wifi_present; then
+		msg "Aucune interface Wi-Fi (wlan0) detectee.
+Le module Wi-Fi n'est peut-etre pas charge ; le Wi-Fi reste disponible
+si vous l'activez plus tard depuis le menu Nura."
+		return 0
+	fi
+	TAB=$(printf '\t')
+	while :; do
+		info "Recherche des reseaux Wi-Fi..."
+		nb=$(wifi_scan)
+		set --
+		i=0
+		while IFS="$TAB" read -r sig nom; do
+			[ -n "$nom" ] || continue
+			i=$((i + 1))
+			set -- "$@" "$i" "$nom   ($sig dBm)"
+		done </tmp/nura-ssid.txt
+		set -- "$@" "99" "> Autre reseau (saisir le nom)"
+		set -- "$@" "98" "> Rechercher a nouveau"
+		set -- "$@" "0" "> Passer cette etape"
+		choix=$(whiptail --title "$TITRE" --menu \
+			"Choisissez votre reseau Wi-Fi ($nb detectes)" "$H_MAX" $COLS "$(li 12)" "$@" 3>&1 1>&2 2>&3) || return 0
+
+		case "$choix" in
+		0) return 0 ;;
+		98) continue ;;
+		99)
+			ssid=$(saisie "Nom du reseau (SSID), meme s'il est masque") || continue
+			[ -n "$ssid" ] || continue
+			;;
+		*)
+			ssid=$(sed -n "${choix}p" /tmp/nura-ssid.txt | cut -f2-)
+			[ -n "$ssid" ] || continue
+			;;
+		esac
+
+		psk=$(secret "Mot de passe Wi-Fi de « $ssid »
+(laissez vide si le reseau est ouvert)") || continue
+
+		if wifi_connecter "$ssid" "$psk"; then
+			ip=$(cat /tmp/nura-wifi-ip 2>/dev/null)
+			$CFG set WIFI_AUTO 1
+			msg "Connecte a « $ssid ».
+
+Adresse de la tablette : $ip
+Vous pouvez la joindre depuis un autre appareil du reseau."
+			return 0
+		fi
+		if oui "La connexion a « $ssid » n'a pas abouti.
+
+Verifier le mot de passe et reessayer ?"; then
+			continue
+		fi
+		return 0
+	done
+}
+
+# --------------------------------------------------------------- etape 6
+etape_usbnet() {
+	log "usbnet"
+	info "Mise en place du reseau USB..."
+	out=$("$BIN/reseau-usb.sh" up 2>&1)
+	case "$out" in
+	actif*)
+		$CFG set RESEAU_USB 1
+		if echo "$out" | grep -q 'cable 1'; then
+			msg "Reseau USB deja operationnel (cable detecte).
+
+Adresse de la tablette : 172.16.42.1
+Depuis l'ordinateur  : ssh $($CFG get USER_LOGIN)@172.16.42.1
+VNC                  : 172.16.42.1:5900
+
+Cela reste disponible a tout moment, sans rien reconfigurer."
+		else
+			msg "Reseau USB arme.
+
+Il s'active tout seul des que vous branchez le cable entre la
+tablette et un ordinateur : la tablette devient alors joignable
+en 172.16.42.1 (SSH, VNC, transfert de fichiers), meme sans Wi-Fi.
+
+Aucune manipulation a faire, c'est deja en place a chaque demarrage.
+Menu Nura > Reseau USB : etat  (pour verifier)."
+		fi
+		;;
+	*)
+		$CFG set RESEAU_USB 0
+		msg "Reseau USB non disponible pour le moment.
+
+Detail : $out
+
+Le Wi-Fi reste utilisable."
+		;;
+	esac
+	log "usbnet : $out"
+}
+
+# --------------------------------------------------------------- etape 7
+etape_montage() {
+	log "montage"
+	if oui "Monter automatiquement les cartes SD et les cles USB ?
+
+Branchez une carte ou une cle : elle apparait dans /media/<nom>
+et s'ouvre avec le gestionnaire de fichiers (menu Nura > Fichiers)."; then
+		$CFG set AUTOMOUNT 1
+		info "Montage des supports deja branches..."
+		"$BIN/automount.sh" tout >/dev/null 2>&1
+		msg "Montage automatique active."
+	else
+		$CFG set AUTOMOUNT 0
+		msg "Montage automatique desactive.
+Les supports restent montables a la main dans /media."
+	fi
+}
+
+# --------------------------------------------------------------- etape 8
+etape_clavier_virtuel() {
+	log "clavier virtuel"
+	if oui "Afficher le clavier tactile au demarrage ?
+
+Il sert a taper du texte sans clavier USB. On le montre ou le cache
+avec le bouton « Clavier » du menu Nura."; then
+		$CFG set CLAVIER on
+		"$BIN/keyboard.sh" on >/dev/null 2>&1
+	else
+		$CFG set CLAVIER off
+		"$BIN/keyboard.sh" off >/dev/null 2>&1
+	fi
+}
+
+# --------------------------------------------------------------- etape 9
+etape_orientation() {
+	log "orientation"
+	choix=$(whiptail --title "$TITRE" --menu \
+		"Orientation de l'ecran" "$H_MAX" $COLS "$(li 4)" \
+		paysage  "Paysage  - 1280 x 800 (recommande)" \
+		portrait "Portrait - 800 x 1280" 3>&1 1>&2 2>&3) || return 0
+	$CFG set ORIENTATION "$choix"
+	"$BIN/orientation.sh" "$choix" >/dev/null 2>&1
+	"$BIN/orientation.sh" sync >/dev/null 2>&1
+	sleep 1
+	log "ORIENTATION=$choix"
+	if ! oui "L'ecran est-il dans le bon sens, et le tactile repond-il
+precisement la ou vous touchez ?"; then
+		# Le doigt tombe a cote : plutot que de laisser une tablette qu'on ne
+		# peut pas toucher, on revient en PORTRAIT, ou le tactile est juste par
+		# nature (c'est son repere natif, aucune matrice a appliquer).
+		"$BIN/orientation.sh" portrait >/dev/null 2>&1
+		$CFG set ORIENTATION portrait
+		log "tactile non concluant : retour en portrait"
+		msg "Retour en portrait : c'est l'orientation ou le tactile tombe
+juste sans calibration.
+
+Pour repasser en paysage plus tard, quand vous voudrez :
+    orientation.sh paysage
+
+L'assistant ne modifiera plus rien."
+	fi
+}
+
+# -------------------------------------------------------------- etape 10
+etape_fin() {
+	log "fin"
+	$CFG set ASSISTANT_DONE 1
+	mkdir -p "$(dirname "$ETAT")"
+	date '+%Y-%m-%d %H:%M:%S' >"$ETAT"
+	ip=$(wifi_ip)
+	[ -n "$ip" ] || ip="non connecte"
+	case "$($CFG get AUTOMOUNT)" in 1) mont="actif" ;; *) mont="inactif" ;; esac
+	case "$($CFG get RESEAU_USB)" in 1) usb="actif" ;; *) usb="inactif" ;; esac
+	msg "Configuration terminee.
+
+  Tablette      : $($CFG get NOM)
+  Compte        : $($CFG get USER_LOGIN)
+  Wi-Fi         : $ip
+  Reseau USB    : $usb
+  Clavier       : $($CFG get CLAVIER)
+  Orientation   : $($CFG get ORIENTATION)
+  Montage auto  : $mont
+
+Le menu Nura (bouton du menu, en bas a gauche) permet de revenir
+sur chacun de ces reglages, et contient les outils : terminal,
+fichiers, batterie, VNC, Wi-Fi."
+	log "assistant termine"
+}
+
+# ------------------------------------------------------------- tout / menu
+principal() {
+	etape_bienvenue
+	etape_clavier
+	etape_fuseau
+	etape_nom
+	etape_compte
+	etape_wifi
+	etape_usbnet
+	etape_montage
+	etape_clavier_virtuel
+	etape_orientation
+	etape_fin
+}
+
+menu_principal() {
+	while :; do
+		choix=$(whiptail --title "$TITRE" --menu \
+			"Que voulez-vous modifier ?" "$H_MAX" $COLS "$(li 12)" \
+			1 "Clavier et langue" \
+			2 "Fuseau horaire" \
+			3 "Nom de la tablette" \
+			4 "Compte et mot de passe" \
+			5 "Wi-Fi" \
+			6 "Reseau par cable USB" \
+			7 "Cartes SD et cles USB" \
+			8 "Clavier tactile" \
+			9 "Orientation et tactile" \
+			10 "Tout reconfigurer" \
+			11 "Etat de la tablette" \
+			0 "Fermer" 3>&1 1>&2 2>&3) || return 0
+		case "$choix" in
+		1) etape_clavier ;;
+		2) etape_fuseau ;;
+		3) etape_nom ;;
+		4) etape_compte ;;
+		5) etape_wifi ;;
+		6) etape_usbnet ;;
+		7) etape_montage ;;
+		8) etape_clavier_virtuel ;;
+		9) etape_orientation ;;
+		10) principal ;;
+		11) etat_tablette ;;
+		0) return 0 ;;
+		esac
+	done
+}
+
+etat_tablette() {
+	ip=$(wifi_ip); [ -n "$ip" ] || ip="non connecte"
+	msg "Etat de la tablette
+
+  Nom           : $($CFG get NOM)
+  Modele        : Samsung Galaxy Tab Active 8.0 Wi-Fi (rubenswifi)
+  Systeme       : $(sed -n 's/^PRETTY_NAME=//p' /etc/os-release 2>/dev/null | tr -d '"')
+  Noyau         : $(uname -r)
+  Adresse Wi-Fi : $ip
+  Ecran         : $(xrandr 2>/dev/null | sed -n 's/.*current \([0-9]* x [0-9]*\).*/\1/p')
+  Batterie      : $("$BIN/batterie.sh" court 2>/dev/null)
+  Assistant     : $([ -f "$ETAT" ] && echo 'deja configure' || echo 'jamais termine')"
+}
+
+# ------------------------------------------------------------------ depart
+case "${1:-}" in
+--reset)
+	rm -f "$ETAT"
+	principal
+	;;
+--menu)
+	menu_principal
+	;;
+--scan)
+	# diagnostic : liste les reseaux vus, sans interface graphique
+	wifi_present || { echo "wlan0 absent"; exit 1; }
+	wifi_scan >/dev/null
+	cat /tmp/nura-ssid.txt
+	;;
+--aide | -h | --help)
+	cat <<'EOF'
+Assistant Nura - configuration de la tablette
+
+  nura-assistant            premier demarrage : toute la configuration
+  nura-assistant --menu     menu : modifier un reglage precis
+  nura-assistant --reset    tout reconfigurer depuis le debut
+  nura-assistant --scan     liste les reseaux Wi-Fi vus (diagnostic)
+
+Reglages : /etc/nura/assistant.conf   (nura-config get CLE / set CLE VALEUR)
+Journal  : /var/log/nura-assistant.log
+EOF
+	;;
+"")
+	if [ -f "$ETAT" ]; then menu_principal; else principal; fi
+	;;
+*)
+	echo "usage: nura-assistant [--menu | --reset]" >&2
+	exit 1
+	;;
+esac

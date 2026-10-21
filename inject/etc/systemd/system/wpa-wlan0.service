@@ -1,0 +1,21 @@
+[Unit]
+Description=wpa_supplicant pour wlan0
+# Le reseau est enregistre par l'assistant au premier demarrage : le nom du
+# reseau de l'auteur n'a pas sa place dans un fichier publie.
+After=wcnss-firmware.service
+Wants=wcnss-firmware.service
+ConditionPathExists=/etc/wpa_supplicant/wpa_supplicant-wlan0.conf
+
+[Service]
+# Type=simple : le supplicant est le processus principal de l'unite.
+# Pas d'ExecStartPre (un nmcli bloque laissait l'unite en "activating").
+# Pas de -f : cette option n'existe pas dans wpa_supplicant (c'est hostapd) et
+# il affichait son usage puis sortait. La trace -dd va dans le journal, lu par
+# x11-diag.sh et wifi.sh debug.
+Type=simple
+ExecStart=/usr/sbin/wpa_supplicant -i wlan0 -c /etc/wpa_supplicant/wpa_supplicant-wlan0.conf -dd
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,29 @@
+[Unit]
+Description=IceWM sur tty1 (X11 fbdev, Galaxy Tab Active)
+After=systemd-user-sessions.service sshd.service
+# X demarre apres sshd pour que le rapport affiche au demarrage donne son etat
+# reel (sinon il est encore "inactive" au moment du rapport).
+Wants=sshd.service
+Conflicts=getty@tty1.service
+
+[Service]
+# Xorg en fbdev ouvre /dev/fb0 : il faut root (ou une règle udev + groupe video).
+Type=simple
+# HOME est INDISPENSABLE : startx cherche $HOME/.xinitrc. Sans HOME, un service
+# systeme lance /etc/X11/xinit/xinitrc, qui demarre un simple xterm blanc.
+Environment=HOME=/root
+Environment=USER=root
+Environment=SHELL=/bin/sh
+WorkingDirectory=/root
+TTYPath=/dev/tty1
+StandardInput=tty
+StandardOutput=tty
+StandardError=tty
+TTYReset=yes
+TTYVHangup=yes
+# x11-run.sh essaie fbdev, puis modesetting, et publie un diagnostic en cas d'echec
+ExecStart=/usr/local/bin/x11-run.sh
+Restart=no
+
+[Install]
+WantedBy=multi-user.target

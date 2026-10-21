@@ -1,0 +1,14 @@
+[Unit]
+Description=Gadget USB (reseau RNDIS/NCM + port serie ACM)
+Documentation=file:/tmp/usb-gadget.log
+After=sysinit.target local-fs.target
+Wants=sysinit.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/usb-gadget.sh
+TimeoutStartSec=180
+
+[Install]
+WantedBy=multi-user.target

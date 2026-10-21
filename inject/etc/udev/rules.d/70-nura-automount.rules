@@ -1,0 +1,7 @@
+# Nura : montage automatique des cartes SD et des cles USB.
+# Le montage est fait par /usr/local/bin/automount.sh, qui respecte le reglage
+# AUTOMOUNT de /etc/nura/assistant.conf (1 = actif).
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="mmcblk1p[0-9]*", RUN+="/usr/local/bin/automount.sh mount %k"
+ACTION=="add", SUBSYSTEM=="block", KERNEL=="sd[b-z][0-9]*",   RUN+="/usr/local/bin/automount.sh mount %k"
+ACTION=="remove", SUBSYSTEM=="block", KERNEL=="mmcblk1p[0-9]*", RUN+="/usr/local/bin/automount.sh umount %k"
+ACTION=="remove", SUBSYSTEM=="block", KERNEL=="sd[b-z][0-9]*",   RUN+="/usr/local/bin/automount.sh umount %k"

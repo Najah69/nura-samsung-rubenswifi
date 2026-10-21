@@ -1,0 +1,40 @@
+MIT License
+
+Copyright (c) 2026 Najah (GitHub: Najah69)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
+
+---
+
+Ce fichier ne couvre que le travail original de ce depot : le portage (patch
+DTS, paquet device, scripts de l'assistant, unites systemd, scripts d'affichage
+et de reseau) et sa documentation.
+
+Il ne couvre pas :
+
+  - le noyau Linux ni postmarketOS/Nura, qui ont leurs propres licences
+    (GPL-2.0 pour le noyau, GPL-2.0 pour pmaports) ;
+  - les firmwares Samsung extraits de la tablette (WCNSS_qcom_wlan_nv.bin,
+    WCNSS_qcom_cfg.ini), qui restent la propriete de Samsung et sont fournis
+    uniquement pour rendre l'image utilisable sur le materiel d'origine ;
+  - les polices, icones et logiciels tiers embarques dans l'image.
+
+Projet non officiel : il n'est ni edite, ni valide, ni soutenu par Samsung,
+par l'equipe postmarketOS, ni par Nura. Flasher une tablette efface ses
+donnees et peut la rendre inutilisable ; c'est a vos risques.

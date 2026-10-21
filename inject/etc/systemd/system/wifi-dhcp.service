@@ -1,0 +1,13 @@
+[Unit]
+Description=Bail DHCP sur wlan0 une fois le Wi-Fi associe
+After=wpa-wlan0.service
+Wants=wpa-wlan0.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+TimeoutStartSec=300
+ExecStart=/usr/local/bin/wifi-dhcp.sh
+
+[Install]
+WantedBy=multi-user.target
