@@ -17,7 +17,7 @@ procédure y tient en cinq étapes.
 | La tablette | Samsung Galaxy Tab Active 8.0 **Wi-Fi**, modèle **SM-T360** (au dos, à côté du numéro de série) |
 | Un ordinateur | Windows 10/11, Linux ou macOS, avec un port USB |
 | Un câble USB | **de données** — beaucoup de câbles ne font que charger et ne détectent jamais la tablette |
-| L'image | `samsung-rubenswifi-v1.0.img.xz` (~700 Mo compressés, 1,74 Gio une fois décompressé) |
+| L'image | `samsung-rubenswifi-v1.0.1.img.xz` (~349 Mo compressés, 1,84 Gio une fois décompressé) |
 | `lk2nd` | `lk2nd-rubens.img` (300 Ko), le micro-chargeur d'amorçage — **une seule fois** |
 | De quoi vérifier | les empreintes SHA-256 sont dans les notes de la version |
 
@@ -30,23 +30,23 @@ SM-T530 (Tab 4 10.1). Seul le **SM-T360** est concerné.
 ## 2. Décompresser l'image
 
 **Windows** : installez [7-Zip](https://www.7-zip.org/), clic droit sur le
-fichier `.img.xz`, *Extraire ici*. Vous obtenez `samsung-rubenswifi-v1.0.img`.
+fichier `.img.xz`, *Extraire ici*. Vous obtenez `samsung-rubenswifi-v1.0.1.img`.
 
 **Linux / macOS** :
 
 ```sh
-unxz samsung-rubenswifi-v1.0.img.xz
+unxz samsung-rubenswifi-v1.0.1.img.xz
 ```
 
 Vérifiez ensuite l'empreinte (facultatif mais recommandé) :
 
 ```sh
-sha256sum samsung-rubenswifi-v1.0.img      # Linux
-shasum -a 256 samsung-rubenswifi-v1.0.img  # macOS
+sha256sum samsung-rubenswifi-v1.0.1.img      # Linux
+shasum -a 256 samsung-rubenswifi-v1.0.1.img  # macOS
 ```
 
 ```powershell
-Get-FileHash .\samsung-rubenswifi-v1.0.img -Algorithm SHA256   # Windows
+Get-FileHash .\samsung-rubenswifi-v1.0.1.img -Algorithm SHA256   # Windows
 ```
 
 ---
@@ -131,7 +131,7 @@ cette étape**.
 ## 6. Flasher le système
 
 ```sh
-heimdall flash --USERDATA samsung-rubenswifi-v1.0.img --no-reboot
+heimdall flash --USERDATA samsung-rubenswifi-v1.0.1.img --no-reboot
 ```
 
 L'écriture dure 1 à 3 minutes (1,74 Gio). Ne débranchez pas.

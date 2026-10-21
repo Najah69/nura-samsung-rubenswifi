@@ -1,10 +1,23 @@
 # Journal des versions
 
-## À paraître — 1.0.1
+## 1.0.1 — 21 octobre 2026
 
-Ces corrections vivent dans le payload (`inject/`) ; une réinjection suffit, sans
-reconstruire le noyau. **L'image `v1.0` publiée ne les contient pas encore.**
+Corrections de l'image `v1.0`. Le noyau ne change pas : seuls le payload
+(`inject/`) et une dépendance du paquet `device-samsung-rubenswifi` bougent.
+Sur une tablette déjà installée, une réinjection suffit.
 
+- **La racine ext4 grandit au démarrage.** L'initramfs agrandissait la partition
+  (`mmcblk0p26`) mais pas le système de fichiers : la racine restait à
+  **1,27 Gio** dans une partition de 11,5 Gio, et `apk add` finissait par
+  échouer sur « No space left on device ». Nouveau service
+  `nura-grandit-racine.service` → `/usr/local/bin/grandit-racine.sh`, qui lance
+  `resize2fs` au démarrage (idempotent, journalisé dans
+  `/var/log/nura-grandit.log`).
+- **Le clavier tactile est surveillé.** `.xinitrc` ne le lançait qu'une fois :
+  s'il mourait, la tablette n'avait plus aucun moyen de saisie. Nouveau service
+  `clavier-virtuel.service` (`Restart=on-failure`, rattaché à
+  `x11-icewm.service`), et l'icône « clavier » de la barre passe désormais par
+  `systemctl` au lieu de tuer puis relancer le processus à la main.
 - **Kitty** (terminal moderne, kitty 0.48) entre dans les dépendances du paquet
   `device-samsung-rubenswifi`, donc dans l'image. Il apparaît dans le menu
   *Fichiers* et dans la barre de lancement rapide, avec son icône d'origine

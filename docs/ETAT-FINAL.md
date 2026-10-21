@@ -17,7 +17,7 @@ batterie, ni Bluetooth, ni caméra, ni accélération graphique.
 
 ## 2. Images
 
-Toutes font **1 872 756 736 octets** et se flashent dans la partition
+Toutes font **1 974 468 608 octets** et se flashent dans la partition
 `USERDATA` (`mmcblk0p26`). Le dossier `image/` contient une empreinte SHA-256 par
 version.
 
@@ -122,7 +122,7 @@ v2-2026-10-21/
 `inject.sh` fait tout : il installe les fichiers, réécrit le DTB pour le Wi-Fi,
 vérifie, et refuse d'écrire si un contrôle échoue.
 
-> **Attention à l'espace disque** : quatre images de 1,87 Go = 7,5 Go. Seules
+> **Attention à l'espace disque** : quatre images de 1,84 Go = 7,4 Go. Seules
 > **v2.2** (ce qui a été flashé) et **v2.4** (référence) méritent d'être gardées.
 
 ## 9. Pièges à ne pas réapprendre

@@ -3,7 +3,7 @@ maintainer="Najah <najah@users.noreply.github.com>"
 pkgname=device-samsung-rubenswifi
 pkgdesc="Samsung Galaxy Tab Active 8.0 Wi-Fi"
 pkgver=1
-pkgrel=1
+pkgrel=3
 url="https://postmarketos.org"
 license="MIT"
 arch="armv7"
@@ -33,6 +33,8 @@ depends="
 	tar
 	unzip
 	wget
+	xdotool
+	xinput
 	xz
 	zstd
 	"

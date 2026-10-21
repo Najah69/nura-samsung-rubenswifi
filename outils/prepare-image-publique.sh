@@ -67,7 +67,10 @@ if [ -n "${PAYLOAD:-}" ] && [ -d "$PAYLOAD" ]; then
 		rel=${f#"$PAYLOAD/"}
 		case "$rel" in inject.sh | wcnss-dtb.sh | outils/*) continue ;; esac
 		[ -e "$M/$rel" ] || continue # fichier propre a l'image : on n'ajoute rien
-		install -m "$(stat -c %a "$f")" "$f" "$M/$rel"
+		# Le mode vient de l'image (inject.sh le pose), pas de /mnt/c : Windows
+		# ne connait que 0777 et rendrait la configuration X, les regles udev et
+		# .xinitrc reinscriptibles par n'importe quel compte.
+		install -m "$(stat -c %a "$M/$rel")" "$f" "$M/$rel"
 		n=$((n + 1))
 	done < <(find "$PAYLOAD" -type f)
 	echo "  [ok] $n fichiers repris de $PAYLOAD"
@@ -76,6 +79,18 @@ if [ -n "${PAYLOAD:-}" ] && [ -d "$PAYLOAD" ]; then
 	chmod 600 "$M/etc/wpa_supplicant/wpa_supplicant-wlan0.conf"
 	chmod 755 "$M"/usr/local/bin/*.sh "$M"/usr/local/bin/nura-* 2>/dev/null || true
 	chmod 644 "$M"/etc/systemd/system/*.service "$M"/etc/nftables.d/*.nft 2>/dev/null || true
+	# Ceinture et bretelles : plus aucun fichier modifiable par tous. Un fichier
+	# laisse en 0777 par la copie depuis /mnt/c est ramene a 755 dans un dossier
+	# de programmes, a 644 partout ailleurs. (Substitution de processus et non
+	# tube : sous set -e/pipefail, un find qui bute sur un dossier illisible
+	# ferait echouer toute la fabrication.)
+	while IFS= read -r f; do
+		case "$f" in
+		"$M"/usr/local/bin/* | "$M"/usr/bin/* | "$M"/usr/sbin/*) chmod 755 "$f" || true ;;
+		*) chmod 644 "$f" || true ;;
+		esac
+	done < <(find "$M" -xdev -type f -perm -0002 2>/dev/null || true)
+	echo "  [ok] droits normalises (aucun fichier en 0777)"
 else
 	echo "  (pas de dossier inject fourni : image laissee telle quelle)"
 fi

@@ -130,7 +130,7 @@ Le détail complet, les pilotes Windows et les erreurs courantes sont dans
 
 Dans les **versions publiées** de ce dépôt :
 
-- `samsung-rubenswifi-v1.0.img.xz` — l'image système (1,74 Gio une fois
+- `samsung-rubenswifi-v1.0.1.img.xz` — l'image système (1,84 Gio une fois
   décompressée)
 - `lk2nd-rubens.img` — le micro-chargeur d'amorçage (300 Ko)
 
@@ -159,7 +159,7 @@ heimdall detect     # doit répondre : Device detected
 
 ```sh
 heimdall flash --BOOT lk2nd-rubens.img --no-reboot            # une seule fois
-heimdall flash --USERDATA samsung-rubenswifi-v1.0.img --no-reboot
+heimdall flash --USERDATA samsung-rubenswifi-v1.0.1.img --no-reboot
 heimdall close-pc-screen --resume
 ```
 
