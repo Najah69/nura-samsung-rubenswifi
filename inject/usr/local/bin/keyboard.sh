@@ -15,12 +15,24 @@ set -u
 export DISPLAY=${DISPLAY:-:0}
 DOCK=/usr/local/bin/dock-keyboard.sh
 
+# Le clavier est porte par un service systemd (Restart=always) : s'il meurt, il
+# revient tout seul. On passe donc par systemctl quand l'unite existe, sinon
+# « off » serait annule par le redemarrage automatique.
+UNIT=clavier-virtuel.service
+
+avec_service() {
+	command -v systemctl >/dev/null 2>&1 && systemctl cat "$UNIT" >/dev/null 2>&1
+}
+
 # PIDs du clavier (on evite pkill -f, qui peut tuer le shell appelant).
 pids() {
 	pgrep -f matchbox-keyboard 2>/dev/null | grep -v "^$$\$"
 }
 
 tourne() {
+	if avec_service; then
+		systemctl is-active --quiet "$UNIT" && return 0
+	fi
 	[ -n "$(pids)" ]
 }
 
@@ -59,7 +71,14 @@ clavier_physique() {
 }
 
 demarrer() {
-	if tourne; then
+	if avec_service; then
+		if systemctl is-active --quiet "$UNIT"; then
+			echo "clavier : deja affiche"
+		else
+			systemctl start "$UNIT" >/dev/null 2>&1
+			echo "clavier : affiche (service $UNIT)"
+		fi
+	elif tourne; then
 		echo "clavier : deja affiche"
 	else
 		# setsid : le clavier ne doit pas mourir avec le terminal ou la session
@@ -78,6 +97,9 @@ demarrer() {
 }
 
 arreter() {
+	# systemctl stop empeche le redemarrage automatique ; on nettoie ensuite les
+	# processus restants, au cas ou l'unite serait absente.
+	avec_service && systemctl stop "$UNIT" >/dev/null 2>&1
 	if tourne; then
 		for p in $(pids); do
 			kill "$p" 2>/dev/null

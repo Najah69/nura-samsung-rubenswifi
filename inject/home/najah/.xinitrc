@@ -40,12 +40,10 @@ fi
 # reapplique la matrice des qu'il existe (et se tait au bout d'une minute).
 /usr/local/bin/orientation.sh surveiller >/dev/null 2>&1 &
 
-# Clavier tactile : affiche seulement s'il est demande dans les reglages.
-# (La detection d'un clavier USB au demarrage a ete abandonnee : lente et inutile,
-# un clavier physique cohabite tres bien avec le clavier tactile.)
-if [ "$($CFG get CLAVIER)" = on ]; then
-	( sleep 6; /usr/local/bin/keyboard.sh on ) >/dev/null 2>&1 &
-fi
+# Clavier tactile : il est porte par clavier-virtuel.service, demarre avec la
+# session et relance tout seul s'il meurt. Rien a faire ici : l'ancien appel
+# apres un « sleep 6 » arrivait parfois avant IceWM et laissait le clavier mal
+# ancre. Le reglage CLAVIER de l'assistant est lu par le service.
 
 # Premier demarrage : assistant de configuration, par-dessus le bureau.
 if [ ! -f /var/lib/nura/assistant.done ] && [ -x /usr/local/bin/nura-assistant ]; then

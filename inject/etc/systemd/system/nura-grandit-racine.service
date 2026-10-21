@@ -1,0 +1,14 @@
+[Unit]
+Description=Nura : agrandir la racine ext4 a la taille de sa partition
+Documentation=file:///usr/local/bin/grandit-racine.sh
+After=local-fs.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/local/bin/grandit-racine.sh
+Nice=10
+IOSchedulingClass=idle
+
+[Install]
+WantedBy=multi-user.target

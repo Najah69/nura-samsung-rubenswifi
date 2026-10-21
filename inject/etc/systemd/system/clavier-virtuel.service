@@ -1,0 +1,18 @@
+[Unit]
+Description=Nura : clavier tactile (matchbox-keyboard) ancre en bas de l'ecran
+Documentation=file:///usr/local/bin/clavier-virtuel.sh
+Wants=x11-icewm.service
+After=x11-icewm.service
+PartOf=x11-icewm.service
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/clavier-virtuel.sh
+# on-failure : un arret volontaire (systemctl stop) ou un reglage CLAVIER=off
+# ne provoquent pas de redemarrage ; un clavier qui meurt, si.
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=8
+
+[Install]
+WantedBy=multi-user.target

@@ -71,6 +71,10 @@ install_file etc/nftables.d/50_vnc.nft      etc/nftables.d/50_vnc.nft      644
 install_file usr/local/bin/orientation.sh   usr/local/bin/orientation.sh   755
 # Clavier virtuel a la demande (icone de la barre des taches).
 install_file usr/local/bin/keyboard.sh      usr/local/bin/keyboard.sh      755
+# Clavier tactile supervise par un service (demarre au boot, relance s'il meurt).
+install_file usr/local/bin/clavier-virtuel.sh usr/local/bin/clavier-virtuel.sh 755
+# Agrandit la racine ext4 a la taille de sa partition (racine en boucle : 1,2 Go).
+install_file usr/local/bin/grandit-racine.sh usr/local/bin/grandit-racine.sh 755
 
 # --- v2 : assistant de configuration et services associes ---
 install_file usr/local/bin/nura-config      usr/local/bin/nura-config      755
@@ -111,12 +115,16 @@ install_file etc/systemd/system/x11vnc.service      etc/systemd/system/x11vnc.se
 install_file etc/systemd/system/wcnss-firmware.service etc/systemd/system/wcnss-firmware.service 644
 install_file etc/systemd/system/wpa-wlan0.service      etc/systemd/system/wpa-wlan0.service      644
 install_file etc/systemd/system/wifi-dhcp.service      etc/systemd/system/wifi-dhcp.service      644
+install_file etc/systemd/system/clavier-virtuel.service   etc/systemd/system/clavier-virtuel.service   644
+install_file etc/systemd/system/nura-grandit-racine.service etc/systemd/system/nura-grandit-racine.service 644
 install_file etc/modules-load.d/usb-gadget.conf     etc/modules-load.d/usb-gadget.conf     644
 mkdir -p "$M/root/.vnc"
 chmod 700 "$M/root/.vnc"
 
 echo "--- activation ---"
 enable_unit x11-icewm.service
+enable_unit clavier-virtuel.service
+enable_unit nura-grandit-racine.service
 enable_unit usb-gadget.service
 enable_unit x11vnc.service
 enable_unit sshd.service
