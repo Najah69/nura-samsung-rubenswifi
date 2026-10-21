@@ -83,7 +83,7 @@ quand le Wi-Fi fonctionne** : ce n'est pas une erreur bloquante.
 Wi-Fi (`MON-RESEAU`, WPA2/SAE, 5 GHz, DHCP), SSH (mot de passe), X11 + IceWM, rotation
 paysage/portrait (bouton + icône) avec tactile recalé, clavier virtuel
 `matchbox-keyboard` (AZERTY, toutes les rangées), VNC `x11vnc` sur 5900 (mot de
-passe le mot de passe VNC (147147 par defaut), régénéré à chaque démarrage, port ouvert par
+passe `147147` par défaut, régénéré à chaque démarrage, port ouvert par
 `/etc/nftables.d/50_vnc.nft`), montage automatique des clés USB, **réseau par
 câble USB** (voir §7), assistant d'installation `nura-assistant`, bash + nano +
 mc + chaîne de compilation.

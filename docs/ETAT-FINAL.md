@@ -42,7 +42,7 @@ mot de passe choisi, orientation paysage mémorisée), l'image repart neuve.
 | Affichage | `1280 × 800`, sortie `None-1` en `left`, profondeur 24/32 |
 | Tactile | Synaptics S5707 (id 7), matrice `0 -1 1 1 0 0 0 0 1` appliquée dans le repère paysage |
 | Clavier virtuel | `matchbox-keyboard` AZERTY, 42 % de la hauteur, toutes les rangées |
-| VNC | `x11vnc` sur 5900, `fb_depth/fb_bpp/fb_Bpl 24/32/3200`, accès avec le mot de passe le mot de passe VNC (147147 par defaut) |
+| VNC | `x11vnc` sur 5900, `fb_depth/fb_bpp/fb_Bpl 24/32/3200`, accès avec le mot de passe VNC (`147147` par défaut) |
 | Réseau USB | gadget `g1` / `ncm.usb0` lié à `ci_hcrc.0`, `unudhcpd@usb0` actif, tablette `172.16.42.1`, PC `172.16.42.2` |
 | Assistant | terminé le 21/10 à 05:04:12 (`/var/lib/nura/assistant.done`), relancé une fois à la main vers 05:05 pour vérifier le tactile, une seule mise en place de l'écran, pas de boucle |
 | Montage USB | clés et cartes montées dans `/media` (`automount.sh`) |
@@ -68,13 +68,13 @@ Mémoire : 1412 Mo au total, dont 1061 Mo libres au repos.
 
 | Voie | Comment |
 |---|---|
-| Wi-Fi (fonctionne) | `ssh dsh@192.168.1.xx` (mot de passe `MOTDEPASSE`) ou `ssh najah@…` (le mot de passe VNC (147147 par defaut)), VNC `192.168.1.xx:5900` |
+| Wi-Fi (fonctionne) | `ssh dsh@192.168.1.xx` (mot de passe `CHANGÉ`) ou `ssh najah@…` (mot de passe VNC), VNC `192.168.1.xx:5900` |
 | Câble USB (fonctionne) | brancher, puis `ssh dsh@172.16.42.1`, VNC `172.16.42.1:5900` |
 | Écran tactile | IceWM + `matchbox-keyboard` |
 | Série USB | **non disponible** |
 
 Comptes : `najah` (uid 10000, `wheel`) et `dsh` (uid 1001), tous deux avec
-`NOPASSWD: ALL` ; root verrouillé. VNC : le mot de passe VNC (147147 par defaut). **X tourne en root**, donc les
+`NOPASSWD: ALL` ; root verrouillé. VNC : mot de passe VNC (`147147` par défaut). **X tourne en root**, donc les
 entrées de menu IceWM ont les droits d'administration.
 
 Nom retenu par l'assistant : **`GalaxiTab`** (`/etc/hostname`). Le nom en cours
