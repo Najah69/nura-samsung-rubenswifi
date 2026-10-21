@@ -1,2 +1,14 @@
+# Empreintes SHA-256 des fichiers publiés (version v1.0).
+#
+# Vérifier après téléchargement :
+#   Linux / macOS :  sha256sum -c SHA256SUMS.txt
+#   Windows        :  Get-FileHash .\samsung-rubenswifi-v1.0.img.xz -Algorithm SHA256
+#
+# L'image publiée est compressée en .xz ; l'empreinte ci-dessous porte sur le
+# fichier .xz tel qu'il est téléchargé, pas sur l'image décompressée.
+# Pour obtenir l'empreinte de l'image une fois décompressée :
+#   xz -d -k samsung-rubenswifi-v1.0.img.xz && sha256sum samsung-rubenswifi-v1.0.img
+
+61d132f1fc46a29ad2b28cf78172166e20d39c4f76fb0c0bd511227fbb85505d  samsung-rubenswifi-v1.0.img.xz
 a2bb4eb6e9c250f514f46b5361b93c9ef18bbcb9f5f191639841a51e0fc7c7bd  samsung-rubenswifi-v1.0.img
 d8270d9826e915f1c0cfce3021572f358e601e22b116327cfe4d3bd9b00fb408  lk2nd-rubens.img
