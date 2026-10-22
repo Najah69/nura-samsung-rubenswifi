@@ -1,5 +1,21 @@
 # Journal des versions
 
+## Correctif à chaud — 22 octobre 2026
+
+- **Claude Code répond enfin** (`outils/installe-claude-code.sh`, à relancer
+  sur la tablette). Deux défauts du lanceur `claude-tui` :
+  - le modèle par défaut de la 1.0.128 (`claude-sonnet-4-20250514`) a été
+    retiré, et l'API répondait `404 not_found_error`. Le lanceur exporte
+    maintenant `ANTHROPIC_MODEL=claude-sonnet-5-5` (modifiable à l'appel) ;
+  - le dialogue « Do you trust the files in this folder? » laissait un écran
+    noir. Le lanceur travaille maintenant dans `/root/projets`, que le script
+    marque comme approuvé dans `/root/.claude.json`, sans toucher au reste du
+    fichier ni à la connexion.
+
+  Ces corrections ont été mises au point sur la tablette le 21 octobre (réponse
+  obtenue dans l'interface interactive) ; le script reproduit à l'identique le
+  lanceur qui y fonctionne.
+
 ## Correctifs à chaud — 21 octobre 2026
 
 Deux ajouts qui ne changent pas le noyau et qui s'appliquent sur une tablette

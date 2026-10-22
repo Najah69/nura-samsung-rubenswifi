@@ -12,12 +12,22 @@
 #  Le ripgrep embarque n'existe pas non plus en armv7 : on depose celui du
 #  systeme a l'emplacement attendu, et on force USE_BUILTIN_RIPGREP=0 par securite.
 #
+#  La 1.0.128 ne connait que les modeles de 2025 et son modele par defaut
+#  (claude-sonnet-4-20250514) a ete retire : l'API repond "404 not_found_error".
+#  Le lanceur impose donc un modele actuel (ANTHROPIC_MODEL, modifiable).
+#
+#  Le lanceur travaille dans /root/projets, marque comme approuve dans
+#  /root/.claude.json : ni avertissement "home directory", ni dialogue
+#  "Do you trust the files in this folder?" (qui, sur cette tablette, laissait
+#  un ecran noir apres validation).
+#
 #  Ne touche ni aux comptes, ni aux mots de passe, ni au Wi-Fi. Rejouable.
 set -u
 
 VERSION=1.0.128
 CD=/usr/local/lib/node_modules/@anthropic-ai/claude-code
 LANCEUR=/usr/local/bin/claude-tui
+PROJETS=/root/projets
 
 if [ "$(id -u)" != 0 ]; then
 	echo "A lancer en root :  sudo sh installe-claude-code.sh" >&2
@@ -58,16 +68,46 @@ else
 	fi
 fi
 
-echo "== 4. lanceur et menu =="
+echo "== 4. dossier de travail approuve =="
+mkdir -p "$PROJETS"
+# Ajoute (ou met a jour) l'approbation de $PROJETS sans toucher au reste du
+# fichier, ni a la connexion deja faite.
+PROJETS="$PROJETS" node -e '
+	const fs = require("fs"), f = "/root/.claude.json", d = process.env.PROJETS;
+	let j = {};
+	try { j = JSON.parse(fs.readFileSync(f, "utf8")); } catch (e) {}
+	j.projects = j.projects || {};
+	j.projects[d] = Object.assign({}, j.projects[d], { hasTrustDialogAccepted: true });
+	fs.writeFileSync(f, JSON.stringify(j, null, 2));
+	fs.chmodSync(f, 0o600);
+' && echo "  $PROJETS approuve dans /root/.claude.json" \
+	|| echo "  !! approbation impossible : Claude Code posera la question au premier lancement" >&2
+
+echo "== 5. lanceur et menu =="
 cat > "$LANCEUR" <<'LANCEUR'
 #!/bin/sh
 # Claude Code (interface texte) dans un terminal X.
 #
-# xterm plutot que kitty : kitty demarre lentement sur cette tablette et n'ouvre
-# ici qu'une fenetre minuscule. Claude Code met par ailleurs une quinzaine de
-# secondes a afficher son premier ecran (requete reseau au demarrage) : d'ou le
-# message d'attente, qui evite de croire a un blocage.
+# Particularites de cette tablette :
+#  - xterm plutot que kitty : kitty demarre lentement et s'ouvre petit ici ;
+#  - Claude Code met une quinzaine de secondes a afficher son premier ecran
+#    (requete reseau au demarrage) : d'ou le message d'attente ;
+#  - le dossier de travail est /root/projets, dont la confiance est deja
+#    enregistree : le dialogue "Do you trust the files in this folder?"
+#    ne s'affiche donc pas.
+#
+# Le client 1.0.128 (derniere version en JavaScript pur, seule compatible avec
+# l'armv7 de la tablette) ne connait que les identifiants de modeles de 2025,
+# et son modele par defaut (claude-sonnet-4-20250514) a ete retire : l'API
+# repond alors "404 not_found_error". On impose donc un modele actuel.
+# Pour en changer : ANTHROPIC_MODEL=claude-opus-5-5 claude-tui
+ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5-5}
+export ANTHROPIC_MODEL
 export USE_BUILTIN_RIPGREP=0
+
+# Dossier de travail : evite l'avertissement "home directory" et le dialogue
+# de confiance.
+cd /root/projets 2>/dev/null || cd /root
 
 XT=/usr/sbin/xterm
 [ -x "$XT" ] || XT=/usr/bin/xterm
@@ -77,7 +117,8 @@ XT=/usr/sbin/xterm
 "$XT" -geometry 110x28+0+20 -fa Monospace -fs 10 -bg black -fg white \
 	-T "Claude Code" -e /bin/sh -c '
 	echo "Claude Code demarre : comptez une quinzaine de secondes."
-	echo "Ensuite, tapez /login pour vous connecter (une seule fois)."
+	echo "Modele : '"'"'"$ANTHROPIC_MODEL"'"'"'."
+	echo "Premiere fois : tapez /login pour vous connecter."
 	echo
 	exec /usr/local/bin/claude
 ' &
@@ -108,7 +149,7 @@ if [ -x /usr/bin/icewm ] && [ -n "${DISPLAY:-}" ]; then
 	/usr/bin/icewm --restart >/dev/null 2>&1 && echo "  IceWM relance"
 fi
 
-echo "== 5. espace =="
+echo "== 6. espace =="
 df -h / | tail -1
 
 echo

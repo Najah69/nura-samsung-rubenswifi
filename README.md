@@ -295,7 +295,7 @@ avec un seul script, puis s'ouvre depuis le menu **Fichiers → Claude Code
 sudo sh outils/installe-claude-code.sh
 ```
 
-Trois choses à savoir, toutes expliquées dans le script :
+Cinq choses à savoir, toutes expliquées dans le script :
 
 - **la version installée est la 1.0.128, pas la dernière.** Depuis la 2.0,
   Claude Code est un binaire natif compilé pour x86-64 et arm64 : il n'existe
@@ -304,9 +304,22 @@ Trois choses à savoir, toutes expliquées dans le script :
 - **le `ripgrep` fourni avec Claude Code n'existe pas non plus en armv7** : le
   script dépose celui du système (ripgrep 15.2.0) à l'emplacement attendu et
   force `USE_BUILTIN_RIPGREP=0` ;
+- **le modèle est imposé par le lanceur.** La 1.0.128 ne connaît que les
+  modèles de 2025, et son modèle par défaut (`claude-sonnet-4-20250514`) a été
+  retiré : l'API répond alors `404 not_found_error`. Le lanceur exporte donc
+  `ANTHROPIC_MODEL=claude-sonnet-5-5`. Pour en changer, le temps d'une
+  session : `ANTHROPIC_MODEL=claude-opus-5-5 claude-tui` ;
+- **le dossier de travail est `/root/projets`**, que le script marque comme
+  approuvé dans `/root/.claude.json`. Sans cela, Claude Code demande
+  « Do you trust the files in this folder? », et sur cette tablette l'écran
+  restait noir après la réponse ;
 - **le premier écran met une quinzaine de secondes à apparaître** (requête
   réseau au démarrage). Le lanceur affiche un message d'attente pour éviter de
   croire à un blocage.
+
+Sur une tablette où Claude Code est déjà installé, relancer le script suffit
+pour obtenir ces deux corrections : il ne réinstalle pas ce qui est déjà en
+place et ne touche pas à la connexion.
 
 Il reste ensuite à s'authentifier, une seule fois : dans Claude Code, tapez
 `/login` (compte Anthropic), ou définissez `ANTHROPIC_API_KEY`. Sans cela, la
