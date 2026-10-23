@@ -1,0 +1,31 @@
+# Theme IceWM « Nura » : fenetres utilisables au doigt sur la Galaxy Tab
+# Active 8.0. Barres de titre de 40 px en couleur unie, boutons de 40 x 40 px
+# contrastes (fermer en rouge). Les images des boutons sont produites par
+# outils/genere-theme-nura.py (format XPM, etat normal en haut, appuye en bas).
+ThemeDescription="Nura : grands boutons contrastes pour l'usage tactile"
+ThemeAuthor="Nura"
+Look=flat
+
+TitleBarHeight=40
+TitleBarCentered=0
+TitleBarHorzOffset=6
+TitleButtonsLeft="s"
+TitleButtonsRight="xmi"
+TitleButtonsSupported="xmis"
+BorderSizeX=8
+BorderSizeY=8
+CornerSizeX=40
+CornerSizeY=40
+DlgBorderSizeX=4
+DlgBorderSizeY=4
+
+ColorActiveTitleBar="rgb:1E/3A/5F"
+ColorNormalTitleBar="rgb:5A/62/70"
+ColorActiveTitleBarText="rgb:FF/FF/FF"
+ColorNormalTitleBarText="rgb:E4/E6/EA"
+ColorActiveBorder="rgb:1E/3A/5F"
+ColorNormalBorder="rgb:5A/62/70"
+ColorActiveButton="rgb:2F/55/83"
+ColorNormalButton="rgb:6B/73/80"
+
+TitleFontNameXft="DejaVu Sans:size=15:bold"

@@ -1,0 +1,9 @@
+# Raccourcis IceWM de la Galaxy Tab Active (Nura) : les touches « Android »
+# du bas de la tablette. Les actions passent par les raccourcis d'IceWM
+# eux-memes (bureau : Ctrl+Alt+d, menu : Ctrl+Echap), via xdotool.
+#   Accueil -> afficher le bureau (un second appui ramene les fenetres)
+#   Menu    -> menu principal d'IceWM
+#   Retour  -> page precedente (Alt+Gauche : Firefox, NetSurf)
+key "XF86HomePage"  xdotool key --clearmodifiers ctrl+alt+d
+key "Menu"          xdotool key --clearmodifiers ctrl+Escape
+key "XF86Back"      xdotool key --clearmodifiers alt+Left

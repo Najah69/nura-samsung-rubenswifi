@@ -1,5 +1,37 @@
 # Journal des versions
 
+## Énergie, touches et usage au doigt — 23 octobre 2026
+
+Tout s'installe sur une tablette en marche (`inject/maj-energie.sh`,
+`inject/maj-interface.sh`), sans reflasher ni toucher au démarrage, et entre
+dans la prochaine image (`inject.sh`, paquet device `pkgrel=4`). Vérifié sur la
+tablette.
+
+- **Luminosité enfin réglable.** La LP8556 était configurée par le device tree
+  en « entrée PWM seulement » (`dev-ctrl = 0x80`) et ignorait son registre de
+  luminosité. `luminosite.sh init` la passe en mode registre (`0x85`) par I²C à
+  chaque démarrage du service. Vol Haut / Vol Bas règlent la luminosité, avec
+  une barre « Luminosité NN % » (`nura-osd`, Tk).
+- **Écran et bouton marche** (`nura-energie`, service systemd) : extinction de
+  l'écran après 3 minutes sans toucher, appui court sur Power pour éteindre /
+  rallumer, dalle tactile désactivée tant que l'écran est noir. L'extinction
+  passe par une luminosité 0 (`lp855x` ignore `bl_power`).
+- **Power n'éteint plus la tablette par mégarde** : systemd-logind éteignait au
+  moindre appui ; il ne réagit plus qu'à l'appui long (5 s), avec un arrêt
+  propre (`logind.conf.d/50-nura-bouton-marche.conf`).
+- **Batterie** : icône dans la barre des tâches (estimation par la tension, même
+  table que `batterie.sh`, lissée sur 5 minutes), alerte à 15 %, arrêt propre à
+  3 % confirmé pendant 3 minutes. Réglages dans `/etc/nura/energie.conf`.
+- **Touches du bas** (`~/.icewm/keys`) : Accueil = bureau, Menu = menu
+  principal, Retour = page précédente.
+- **Usage au doigt** : thème IceWM **Nura** (barres de titre et boutons de
+  40 px, fermer en rouge, dessinés par `outils/genere-theme-nura.py`), icônes de
+  32 px et polices agrandies (`~/.icewm/prefoverride`, lu après le thème ; les
+  anciens noms d'options de `preferences` étaient ignorés par IceWM 4.1).
+- **Menu Écran** : « Éteindre l'écran » et luminosité +, −, 25 %, 50 %, 100 %.
+- **Documentation** : section « Pièges vérifiés » du README (cpuidle qui fige le
+  démarrage, fastboot de lk2nd invisible, Heimdall qui efface tout `USERDATA`).
+
 ## Correctif à chaud — 22 octobre 2026
 
 - **Claude Code répond enfin** (`outils/installe-claude-code.sh`, à relancer

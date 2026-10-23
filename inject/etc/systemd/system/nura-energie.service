@@ -1,0 +1,19 @@
+[Unit]
+Description=Nura : ecran, bouton marche, luminosite et batterie
+Documentation=file:///usr/local/bin/nura-energie
+Wants=x11-icewm.service
+After=x11-icewm.service
+PartOf=x11-icewm.service
+
+[Service]
+Type=simple
+Environment=DISPLAY=:0 HOME=/root
+# Sans cela, la puce de retroeclairage ignore la luminosite (voir luminosite.sh).
+ExecStartPre=-/usr/local/bin/luminosite.sh init
+ExecStart=/usr/bin/python3 /usr/local/bin/nura-energie
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=8
+
+[Install]
+WantedBy=multi-user.target

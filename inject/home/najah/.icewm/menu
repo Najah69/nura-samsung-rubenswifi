@@ -32,6 +32,12 @@ menu "Ecran" folder {
 	prog "Paysage 1280x800" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh paysage
 	prog "Portrait 800x1280" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh portrait
 	prog "Etat de l'ecran" folder xterm -xrm "XTerm*font: 10x20" -geometry 78x32 -e /usr/local/bin/orientation.sh etat
+	prog "Eteindre l'ecran (Power pour rallumer)" folder systemctl kill -s USR1 nura-energie.service
+	prog "Luminosite +" folder /usr/local/bin/luminosite.sh plus
+	prog "Luminosite -" folder /usr/local/bin/luminosite.sh moins
+	prog "Luminosite 25 %" folder /usr/local/bin/luminosite.sh 25%
+	prog "Luminosite 50 %" folder /usr/local/bin/luminosite.sh 50%
+	prog "Luminosite 100 %" folder /usr/local/bin/luminosite.sh 100%
 }
 
 menu "Diagnostic" folder {

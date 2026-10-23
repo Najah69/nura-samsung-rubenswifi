@@ -1,0 +1,356 @@
+#!/usr/bin/python3
+# nura-energie : ecran, bouton marche, luminosite et batterie de la Galaxy Tab
+# Active 8.0 (SM-T360) sous Nura. Service systemd nura-energie.service.
+#
+#  - Ecran : eteint apres ECRAN_DELAI secondes sans toucher l'ecran (luminosite
+#    du lp8556 mise a 0 : le pilote lp855x ignore bl_power). Pendant que l'ecran
+#    est eteint, la dalle tactile est desactivee pour eviter les appuis
+#    fantomes ; Power ou Accueil rallume.
+#  - Bouton marche : appui court = eteindre / rallumer l'ecran. L'appui long
+#    (5 s) est laisse a systemd-logind, qui eteint proprement la tablette
+#    (voir /etc/systemd/logind.conf.d/50-nura-bouton-marche.conf).
+#  - Luminosite : Vol Haut / Vol Bas (la tablette n'a pas de son), memorisee
+#    dans /var/lib/nura/luminosite, avec une barre affichee par nura-osd.
+#  - Batterie : il n'y a pas de jauge en noyau libre (chargeur MAX77804K sans
+#    pilote). La charge est ESTIMEE par la tension vph_pwr du PM8226, avec la
+#    meme table que batterie.sh, lissee sur 5 minutes. Icone dans la barre des
+#    taches, alerte a BATTERIE_ALERTE %, arret propre a BATTERIE_CRITIQUE %
+#    confirme pendant 3 minutes, apres un compte a rebours de 60 s.
+#
+# Reglages : /etc/nura/energie.conf. Signal USR1 = eteindre l'ecran tout de
+# suite (entree de menu « Eteindre l'ecran »).
+import os
+import select
+import signal
+import statistics
+import struct
+import subprocess
+import time
+
+CONF = "/etc/nura/energie.conf"
+ETAT_LUM = "/var/lib/nura/luminosite"
+BL = "/sys/class/backlight/lcd-backlight"
+RUN = "/run/nura"
+TACTILE = "Synaptics s5707"
+ENV_X = dict(os.environ, DISPLAY=":0", HOME="/root")
+
+DEFAUTS = {
+	"ECRAN_DELAI": "180",            # secondes ; 0 = jamais
+	"ECRAN_REVEIL_TACTILE": "non",   # oui = un appui sur la dalle rallume aussi
+	"LUMINOSITE_PAS": "20",
+	"LUMINOSITE_MIN": "8",
+	"BATTERIE_ICONE": "oui",
+	"BATTERIE_ALERTE": "15",
+	"BATTERIE_CRITIQUE": "3",
+	"ARRET_CRITIQUE": "oui",
+}
+
+EV_KEY = 1
+KEY_POWER, KEY_VOLUMEUP, KEY_VOLUMEDOWN, KEY_HOMEPAGE = 116, 115, 114, 172
+EV_FMT = "llHHi"
+EV_TAILLE = struct.calcsize(EV_FMT)
+
+# Meme table que /usr/local/bin/batterie.sh (mV -> %).
+TABLE = [(3300, 0), (3400, 1), (3500, 3), (3550, 5), (3600, 8), (3650, 12), (3700, 18),
+	(3750, 25), (3800, 33), (3850, 42), (3900, 52), (3950, 61), (4000, 69), (4050, 77),
+	(4100, 84), (4150, 90), (4200, 94), (4250, 97), (4350, 100)]
+
+
+def journal(*m):
+	print("nura-energie :", *m, flush=True)
+
+
+def lire_conf():
+	c = dict(DEFAUTS)
+	try:
+		with open(CONF) as f:
+			for ligne in f:
+				ligne = ligne.split("#", 1)[0].strip()
+				if "=" in ligne:
+					k, v = ligne.split("=", 1)
+					c[k.strip()] = v.strip().strip('"').strip("'")
+	except OSError:
+		pass
+	return c
+
+
+def entier(c, k):
+	try:
+		return int(c[k])
+	except (KeyError, ValueError):
+		return int(DEFAUTS[k])
+
+
+def lire(p, defaut=""):
+	try:
+		with open(p) as f:
+			return f.read().strip()
+	except OSError:
+		return defaut
+
+
+def ecrire(p, v):
+	try:
+		with open(p, "w") as f:
+			f.write(str(v))
+		return True
+	except OSError as e:
+		journal("ecriture impossible", p, e)
+		return False
+
+
+def x(*cmd):
+	try:
+		return subprocess.run(cmd, env=ENV_X, capture_output=True, text=True, timeout=5).stdout
+	except (OSError, subprocess.SubprocessError):
+		return None
+
+
+def message(texte, delai=0):
+	cmd = ["xmessage", "-center", "-buttons", "OK:0"]
+	if delai:
+		cmd += ["-timeout", str(delai)]
+	try:
+		subprocess.Popen(cmd + [texte], env=ENV_X)
+	except OSError:
+		journal("xmessage absent :", texte)
+
+
+def ouvrir_entree(nom):
+	for e in sorted(os.listdir("/dev/input")):
+		if e.startswith("event") and lire("/sys/class/input/%s/device/name" % e) == nom:
+			try:
+				return os.open("/dev/input/" + e, os.O_RDONLY | os.O_NONBLOCK)
+			except OSError as err:
+				journal("ouverture impossible", e, err)
+	return None
+
+
+def pourcentage(mv):
+	if mv <= TABLE[0][0]:
+		return 0
+	if mv >= TABLE[-1][0]:
+		return 100
+	for (v1, p1), (v2, p2) in zip(TABLE, TABLE[1:]):
+		if v1 <= mv <= v2:
+			return round(p1 + (mv - v1) * (p2 - p1) / (v2 - v1))
+	return 0
+
+
+def trouver_adc():
+	base = "/sys/bus/iio/devices"
+	for d in sorted(os.listdir(base)):
+		if "adc@3100" in lire(os.path.join(base, d, "name")):
+			return os.path.join(base, d, "in_voltage7_input")   # vph_pwr, en microvolts
+	return None
+
+
+class Energie:
+	def __init__(self):
+		self.c = lire_conf()
+		self.ecran = True
+		self.last_wake = time.monotonic()
+		self.appui_power = None
+		self.lum = self.lum_initiale()
+		self.adc = trouver_adc()
+		self.mesures = []
+		self.alerte_faite = False
+		self.critique_n = 0
+		self.arret_prevu = None
+		self.yad = None
+		self.osd = None
+		self.coupure_demandee = False
+		ecrire(BL + "/bl_power", 0)
+		ecrire(BL + "/brightness", self.lum)
+		os.makedirs(RUN, exist_ok=True)
+		signal.signal(signal.SIGUSR1, self.sur_usr1)
+
+	def sur_usr1(self, *_):
+		self.coupure_demandee = True
+
+	# -- luminosite --------------------------------------------------------
+	def lum_initiale(self):
+		mx = int(lire(BL + "/max_brightness", "255") or 255)
+		v = lire(ETAT_LUM) or lire(BL + "/brightness", "63")
+		try:
+			v = int(v)
+		except ValueError:
+			v = 63
+		return max(entier(self.c, "LUMINOSITE_MIN"), min(mx, v))
+
+	def regler_lum(self, delta):
+		mx = int(lire(BL + "/max_brightness", "255") or 255)
+		cur = int(lire(BL + "/brightness", str(self.lum)) or self.lum)
+		self.lum = max(entier(self.c, "LUMINOSITE_MIN"), min(mx, cur + delta))
+		ecrire(BL + "/brightness", self.lum)
+		ecrire(ETAT_LUM, self.lum)
+		self.afficher_lum(round(self.lum * 100 / mx))
+
+	def lancer_osd(self):
+		"""nura-osd : fenetre Tk cachee, lancee d'avance (Tk met ~1 s a demarrer ici)."""
+		if self.osd is None or self.osd.poll() is not None:
+			try:
+				self.osd = subprocess.Popen(["/usr/bin/python3", "/usr/local/bin/nura-osd"],
+					stdin=subprocess.PIPE, env=ENV_X, text=True)
+			except OSError:
+				self.osd = None
+
+	def afficher_lum(self, pct):
+		"""Barre de luminosite."""
+		self.lancer_osd()
+		if self.osd is None:
+			return
+		try:
+			self.osd.stdin.write("lum %d\n" % pct)
+			self.osd.stdin.flush()
+		except (OSError, ValueError):
+			self.osd = None
+
+	# -- ecran -------------------------------------------------------------
+	def eteindre(self, pourquoi):
+		if not self.ecran:
+			return
+		cur = lire(BL + "/brightness")
+		if cur.isdigit() and int(cur) > 0:
+			self.lum = int(cur)
+			ecrire(ETAT_LUM, self.lum)
+		ecrire(BL + "/brightness", 0)
+		if self.c.get("ECRAN_REVEIL_TACTILE") != "oui":
+			x("xinput", "disable", TACTILE)
+		self.ecran = False
+		journal("ecran eteint (%s)" % pourquoi)
+
+	def allumer(self, pourquoi):
+		if self.ecran:
+			return
+		ecrire(BL + "/brightness", self.lum)
+		x("xinput", "enable", TACTILE)
+		x("xset", "s", "reset")
+		self.ecran = True
+		self.last_wake = time.monotonic()
+		journal("ecran allume (%s)" % pourquoi)
+
+	def verifier_inactivite(self):
+		delai = entier(self.c, "ECRAN_DELAI")
+		sortie = x("xprintidle")
+		if sortie is None or not sortie.strip().isdigit():
+			return
+		idle = int(sortie.strip()) / 1000.0
+		if self.ecran:
+			if delai > 0 and min(idle, time.monotonic() - self.last_wake) >= delai:
+				self.eteindre("inactivite")
+		elif self.c.get("ECRAN_REVEIL_TACTILE") == "oui" and idle < 2:
+			self.allumer("toucher")
+
+	# -- touches -----------------------------------------------------------
+	def touche(self, code, valeur):
+		if code == KEY_POWER:
+			if valeur == 1:
+				self.appui_power = time.monotonic()
+			elif valeur == 0 and self.appui_power is not None:
+				duree = time.monotonic() - self.appui_power
+				self.appui_power = None
+				if duree < 2.0:      # au-dela, c'est l'appui long de logind
+					if self.ecran:
+						self.eteindre("bouton marche")
+					else:
+						self.allumer("bouton marche")
+		elif code == KEY_HOMEPAGE and valeur == 1 and not self.ecran:
+			self.allumer("touche Accueil")
+		elif code in (KEY_VOLUMEUP, KEY_VOLUMEDOWN) and valeur in (1, 2) and self.ecran:
+			pas = entier(self.c, "LUMINOSITE_PAS")
+			self.regler_lum(pas if code == KEY_VOLUMEUP else -pas)
+
+	# -- batterie ----------------------------------------------------------
+	def icone(self, pct, mv):
+		if self.c.get("BATTERIE_ICONE") != "oui":
+			return
+		if self.yad is None or self.yad.poll() is not None:
+			try:
+				self.yad = subprocess.Popen(
+					["yad", "--notification", "--listen", "--image=battery-level-50-symbolic",
+					 "--text=Batterie", "--command=xterm -xrm 'XTerm*font: 10x20' -geometry 78x20 "
+					 "-e /usr/local/bin/batterie.sh"],
+					stdin=subprocess.PIPE, env=ENV_X, text=True)
+			except OSError:
+				self.c["BATTERIE_ICONE"] = "non"
+				journal("yad absent : pas d'icone de batterie")
+				return
+		niveau = min(100, max(0, int(round(pct / 10.0)) * 10))
+		if mv > 4250:
+			texte = "Batterie pleine ou en charge (%.2f V) - estimation par la tension" % (mv / 1000)
+		else:
+			texte = "Batterie : environ %d %% (%.2f V) - estimation par la tension" % (pct, mv / 1000)
+		try:
+			self.yad.stdin.write("icon:battery-level-%d-symbolic\ntooltip:%s\n" % (niveau, texte))
+			self.yad.stdin.flush()
+		except (OSError, ValueError):
+			self.yad = None
+
+	def mesurer(self):
+		if not self.adc:
+			return
+		uv = lire(self.adc)
+		if not uv.lstrip("-").isdigit():
+			return
+		self.mesures = (self.mesures + [int(uv) // 1000])[-10:]   # 10 x 30 s = 5 min
+		mv = int(statistics.median(self.mesures))
+		pct = pourcentage(mv)
+		ecrire(RUN + "/batterie", "%d %d\n" % (pct, mv))
+		self.icone(pct, mv)
+		alerte, critique = entier(self.c, "BATTERIE_ALERTE"), entier(self.c, "BATTERIE_CRITIQUE")
+		if pct <= alerte and not self.alerte_faite and len(self.mesures) >= 4:
+			self.alerte_faite = True
+			message("Batterie faible : environ %d %%.\nBranchez le chargeur." % pct, 120)
+			journal("alerte batterie faible", pct, mv)
+		elif pct >= alerte + 5:
+			self.alerte_faite = False
+		# Arret : 6 mesures lissees d'affilee sous le seuil (3 min), et pas de remontee.
+		self.critique_n = self.critique_n + 1 if pct <= critique and len(self.mesures) >= 6 else 0
+		if self.arret_prevu is None and self.critique_n >= 6 and self.c.get("ARRET_CRITIQUE") == "oui" \
+				and max(self.mesures[-6:]) - min(self.mesures[-6:]) < 40:
+			self.arret_prevu = time.monotonic() + 60
+			self.allumer("batterie critique")
+			message("Batterie presque vide (environ %d %%).\nArret propre dans 60 secondes.\n"
+				"Branchez le chargeur pour l'eviter." % pct, 60)
+			journal("batterie critique : arret dans 60 s", pct, mv)
+		if self.arret_prevu is not None and pct > critique + 1:
+			self.arret_prevu = None
+			journal("arret annule : la tension remonte", pct, mv)
+
+	# -- boucle ------------------------------------------------------------
+	def boucle(self):
+		entrees = [fd for fd in (ouvrir_entree("pm8941_pwrkey"), ouvrir_entree("gpio-keys"),
+			ouvrir_entree("pm8941_resin")) if fd is not None]
+		journal("demarre : %d entrees, ecran %s s, adc %s" % (len(entrees), self.c["ECRAN_DELAI"], self.adc))
+		self.lancer_osd()
+		t_idle = t_batt = 0.0
+		while True:
+			pret, _, _ = select.select(entrees, [], [], 1.0)
+			for fd in pret:
+				try:
+					donnees = os.read(fd, EV_TAILLE * 32)
+				except OSError:
+					continue
+				for i in range(0, len(donnees) - EV_TAILLE + 1, EV_TAILLE):
+					_, _, typ, code, valeur = struct.unpack(EV_FMT, donnees[i:i + EV_TAILLE])
+					if typ == EV_KEY:
+						self.touche(code, valeur)
+			if self.coupure_demandee:
+				self.coupure_demandee = False
+				self.eteindre("menu")
+			now = time.monotonic()
+			if now - t_idle >= 2:
+				t_idle = now
+				self.verifier_inactivite()
+			if now - t_batt >= 30:
+				t_batt = now
+				self.mesurer()
+			if self.arret_prevu is not None and now >= self.arret_prevu:
+				journal("arret propre (batterie critique)")
+				subprocess.run(["systemctl", "poweroff"])
+				self.arret_prevu = None
+
+
+if __name__ == "__main__":
+	Energie().boucle()

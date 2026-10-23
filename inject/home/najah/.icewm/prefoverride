@@ -1,0 +1,44 @@
+# Tailles « au doigt » pour la Galaxy Tab Active 8.0 (1280x800, ~96 ppp).
+# Une cible tactile doit faire au moins 9 mm, soit ~36 pixels.
+#
+# Ce fichier est lu APRES le theme : c'est le seul endroit ou une hauteur de
+# barre de titre l'emporte sur celle du theme (win95 impose 20 px). Les noms
+# sont ceux d'IceWM 4.1 (IconSize, TaskBarFontName, TitleFontName... de
+# preferences viennent d'anciennes versions et sont ignores).
+
+# Icones : barre des taches et lancement rapide, menus, fenetres.
+SmallIconSize=32
+MenuIconSize=32
+LargeIconSize=48
+HugeIconSize=64
+
+# Fenetres : barre de titre et boutons plus hauts, bords plus faciles a saisir.
+TitleBarHeight=40
+BorderSizeX=8
+BorderSizeY=8
+CornerSizeX=40
+CornerSizeY=40
+ScrollBarX=32
+ScrollBarY=32
+
+# Barre des taches : indicateurs a la hauteur des icones.
+TaskBarGraphHeight=32
+
+# Polices (Xft, celles qu'IceWM 4 utilise reellement).
+NormalTaskBarFontNameXft="DejaVu Sans:size=14"
+ActiveTaskBarFontNameXft="DejaVu Sans:size=14:bold"
+NormalWorkspaceFontNameXft="DejaVu Sans:size=14"
+ActiveWorkspaceFontNameXft="DejaVu Sans:size=14:bold"
+ClockFontNameXft="DejaVu Sans:size=15:bold"
+MenuFontNameXft="DejaVu Sans:size=16"
+TitleFontNameXft="DejaVu Sans:size=15:bold"
+NormalButtonFontNameXft="DejaVu Sans:size=15"
+ActiveButtonFontNameXft="DejaVu Sans:size=15:bold"
+ToolTipFontNameXft="DejaVu Sans:size=15"
+ListBoxFontNameXft="DejaVu Sans:size=15"
+LabelFontNameXft="DejaVu Sans:size=15"
+StatusFontNameXft="DejaVu Sans Mono:size=14:bold"
+QuickSwitchFontNameXft="DejaVu Sans:size=16:bold"
+
+# Info-bulles : apparition plus rapide (pas de survol au doigt).
+ToolTipDelay=300

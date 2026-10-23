@@ -3,7 +3,7 @@ maintainer="Najah <najah@users.noreply.github.com>"
 pkgname=device-samsung-rubenswifi
 pkgdesc="Samsung Galaxy Tab Active 8.0 Wi-Fi"
 pkgver=1
-pkgrel=3
+pkgrel=4
 url="https://postmarketos.org"
 license="MIT"
 arch="armv7"
@@ -37,6 +37,14 @@ depends="
 	xinput
 	xz
 	zstd
+	adwaita-icon-theme
+	i2c-tools
+	python3
+	python3-tkinter
+	tk
+	xmessage
+	xprintidle
+	yad
 	"
 makedepends="devicepkg-dev"
 source="deviceinfo kernel-cmdline.conf modules-initfs"

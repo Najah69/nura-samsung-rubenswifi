@@ -82,6 +82,17 @@ install_file usr/local/bin/nura-assistant   usr/local/bin/nura-assistant   755
 install_file usr/local/bin/automount.sh     usr/local/bin/automount.sh     755
 install_file usr/local/bin/reseau-usb.sh    usr/local/bin/reseau-usb.sh    755
 install_file usr/local/bin/batterie.sh      usr/local/bin/batterie.sh      755
+# Energie : ecran eteint apres inactivite, bouton marche, luminosite (et sa
+# barre), icone de batterie, arret propre quand elle est vide. Voir nura-energie.
+install_file usr/local/bin/nura-energie     usr/local/bin/nura-energie     755
+install_file usr/local/bin/nura-osd         usr/local/bin/nura-osd         755
+install_file usr/local/bin/luminosite.sh    usr/local/bin/luminosite.sh    755
+install_file etc/systemd/logind.conf.d/50-nura-bouton-marche.conf \
+            etc/systemd/logind.conf.d/50-nura-bouton-marche.conf 644
+# Theme IceWM « Nura » : boutons de fenetre de 40 px (outils/genere-theme-nura.py).
+for f in "$SRC"/usr/share/icewm/themes/Nura/*; do
+	install_file "usr/share/icewm/themes/Nura/${f##*/}" "usr/share/icewm/themes/Nura/${f##*/}" 644
+done
 # Navigateurs : netsurf par defaut, firefox en secours sur les sites modernes.
 install_file usr/local/bin/navigateur.sh    usr/local/bin/navigateur.sh    755
 # Trouve le fichier d'authentification reel du serveur X : sans lui, x11vnc
@@ -95,6 +106,11 @@ if [ -f "$M/etc/nura/assistant.conf" ]; then
 	ok "etc/nura/assistant.conf conserve (reglages existants)"
 else
 	install_file etc/nura/assistant.conf etc/nura/assistant.conf 644
+fi
+if [ -f "$M/etc/nura/energie.conf" ]; then
+	ok "etc/nura/energie.conf conserve (reglages existants)"
+else
+	install_file etc/nura/energie.conf etc/nura/energie.conf 644
 fi
 chmod 755 "$M/media" "$M/var/lib/nura"
 mkdir -p "$M/usr/share/pixmaps"
@@ -117,6 +133,7 @@ install_file etc/systemd/system/wpa-wlan0.service      etc/systemd/system/wpa-wl
 install_file etc/systemd/system/wifi-dhcp.service      etc/systemd/system/wifi-dhcp.service      644
 install_file etc/systemd/system/clavier-virtuel.service   etc/systemd/system/clavier-virtuel.service   644
 install_file etc/systemd/system/nura-grandit-racine.service etc/systemd/system/nura-grandit-racine.service 644
+install_file etc/systemd/system/nura-energie.service etc/systemd/system/nura-energie.service 644
 install_file etc/modules-load.d/usb-gadget.conf     etc/modules-load.d/usb-gadget.conf     644
 mkdir -p "$M/root/.vnc"
 chmod 700 "$M/root/.vnc"
@@ -125,6 +142,7 @@ echo "--- activation ---"
 enable_unit x11-icewm.service
 enable_unit clavier-virtuel.service
 enable_unit nura-grandit-racine.service
+enable_unit nura-energie.service
 enable_unit usb-gadget.service
 enable_unit x11vnc.service
 enable_unit sshd.service
@@ -193,6 +211,12 @@ install_file home/najah/.icewm/toolbar home/najah/.icewm/toolbar 644
 cp "$SRC/home/najah/.icewm/toolbar" "$M/root/.icewm/toolbar"
 chmod 644 "$M/root/.icewm/toolbar"
 ok "root/.icewm/toolbar"
+# Usage au doigt : tailles (prefoverride, lu apres le theme), theme Nura,
+# touches Android (Accueil, Menu, Retour).
+for f in prefoverride theme keys; do
+	install_file "home/najah/.icewm/$f" "home/najah/.icewm/$f" 644
+	cp "$SRC/home/najah/.icewm/$f" "$M/root/.icewm/$f" && chmod 644 "$M/root/.icewm/$f" && ok "root/.icewm/$f"
+done
 
 echo "--- editeur et pager par defaut ---"
 install_file etc/profile.d/editor.sh etc/profile.d/editor.sh 644
@@ -306,7 +330,7 @@ echo
 echo "=== verification : unites activees ==="
 for u in x11-icewm.service usb-gadget.service x11vnc.service NetworkManager.service \
          msm-firmware-loader.service wcnss-firmware.service wpa-wlan0.service \
-         wifi-dhcp.service sshd.service serial-getty@ttyGS0.service; do
+         wifi-dhcp.service sshd.service serial-getty@ttyGS0.service nura-energie.service; do
 	found=$(find "$M/etc/systemd/system" -maxdepth 2 -name "$u" -type l 2>/dev/null | head -1)
 	if [ -n "$found" ]; then printf '  ok       %s\n' "${found#"$M"}"
 	else printf '  ABSENT   %s\n' "$u"; fi
@@ -329,7 +353,11 @@ for f in root/.xinitrc root/.icewm/preferences root/.icewm/menu home/najah/.icew
          etc/systemd/system/x11vnc.service \
          usr/local/bin/load-wcnss-fw.sh etc/systemd/system/wcnss-firmware.service \
          etc/modprobe.d/zz-wcnss.conf \
-         etc/profile.d/editor.sh etc/ssh/sshd_config.d/10-rubens.conf; do
+         etc/profile.d/editor.sh etc/ssh/sshd_config.d/10-rubens.conf \
+         usr/local/bin/nura-energie usr/local/bin/luminosite.sh \
+         etc/systemd/logind.conf.d/50-nura-bouton-marche.conf \
+         root/.icewm/prefoverride root/.icewm/theme root/.icewm/keys \
+         usr/share/icewm/themes/Nura/default.theme; do
 	if [ -e "$M/$f" ]; then
 		printf '  present  %-46s %s\n' "$f" "$(stat -c '%s o, mode %a' "$M/$f")"
 	else

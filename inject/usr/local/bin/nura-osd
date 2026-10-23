@@ -1,0 +1,60 @@
+#!/usr/bin/python3
+# nura-osd : barre de luminosite affichee au centre de l'ecran pendant 1,5 s.
+# Lance et nourri par nura-energie : une ligne « lum NN » (pourcentage) sur
+# l'entree standard a chaque appui sur Vol Haut / Vol Bas. La fenetre Tk reste
+# cachee entre deux affichages (pas de demarrage a chaque appui : cette tablette
+# met plus d'une seconde a lancer un programme graphique).
+import sys
+import tkinter as tk
+
+L, H = 520, 110          # taille de la fenetre
+DUREE = 1500             # ms d'affichage apres le dernier appui
+FOND, TEXTE, CADRE, BARRE = "#1e2a3a", "#f2f2f2", "#7f8c9a", "#f4c542"
+
+root = tk.Tk()
+root.withdraw()
+root.overrideredirect(True)
+root.attributes("-topmost", True)
+root.configure(bg=FOND)
+toile = tk.Canvas(root, width=L, height=H, bg=FOND, highlightthickness=0)
+toile.pack()
+minuterie = None
+
+
+def cacher():
+	root.withdraw()
+
+
+def afficher(pct):
+	global minuterie
+	pct = max(0, min(100, pct))
+	toile.delete("all")
+	toile.create_text(L // 2, 30, text="Luminosite  %d %%" % pct, fill=TEXTE,
+		font=("DejaVu Sans", 18, "bold"))
+	x0, y0, x1, y1 = 30, 62, L - 30, 88
+	toile.create_rectangle(x0, y0, x1, y1, outline=CADRE, width=2)
+	if pct > 0:
+		toile.create_rectangle(x0 + 3, y0 + 3, x0 + 3 + (x1 - x0 - 6) * pct // 100, y1 - 3,
+			fill=BARRE, outline="")
+	x = (root.winfo_screenwidth() - L) // 2
+	y = root.winfo_screenheight() // 3 - H // 2
+	root.geometry("%dx%d+%d+%d" % (L, H, x, y))
+	root.deiconify()
+	root.lift()
+	if minuterie is not None:
+		root.after_cancel(minuterie)
+	minuterie = root.after(DUREE, cacher)
+
+
+def lire(*_):
+	ligne = sys.stdin.readline()
+	if not ligne:            # nura-energie s'est arrete
+		root.destroy()
+		return
+	morceaux = ligne.split()
+	if len(morceaux) == 2 and morceaux[0] == "lum" and morceaux[1].isdigit():
+		afficher(int(morceaux[1]))
+
+
+root.tk.createfilehandler(sys.stdin, tk.READABLE, lire)
+root.mainloop()

@@ -95,6 +95,10 @@ l'assistant de premier démarrage.
 | VNC | `x11vnc` sur 5900 : la tablette est le serveur, le PC est le client |
 | SSH | `sshd`, comptes `najah` (sudo) et `dsh` |
 | USB | montage automatique des clés et cartes SD |
+| Écran et luminosité | extinction après 3 min sans toucher, **Power** = éteindre / rallumer l'écran, **Vol Haut / Vol Bas** = luminosité avec une barre à l'écran |
+| Touches du bas | **Accueil** = bureau, **Menu** = menu principal, **Retour** = page précédente |
+| Usage au doigt | thème **Nura** : barres de titre et boutons de 40 px (fermer en rouge), icônes de 32 px, polices agrandies |
+| Batterie | niveau **estimé** par la tension, icône dans la barre, alerte à 15 %, arrêt propre à 3 % |
 | Son ? | voir ci-dessous : non |
 | Paquets | `apk add` fonctionne, `gcc`, `git`, `python3`, `nano`, `mc` disponibles |
 | Navigateurs | `netsurf` par défaut, `firefox` en secours sur les sites modernes |
@@ -103,20 +107,21 @@ l'assistant de premier démarrage.
 
 | | Cause |
 |---|---|
-| **Batterie / charge** | le chargeur est un **MAX77804K**, sans pilote mainline : pas de recharge pilotée, pas de veille. Le niveau est **estimé** par la tension (`batterie.sh`), ce qui suffit à ne pas tomber en panne mais pas à une jauge fiable |
+| **Batterie / charge** | le chargeur est un **MAX77804K**, sans pilote mainline : pas de recharge pilotée, pas de jauge. Le niveau est **estimé** par la tension (`batterie.sh`, icône de la barre), ce qui suffit à ne pas tomber en panne mais pas à une jauge fiable |
 | **Son** | ampli **MAX98504**, routage propre à Samsung : travail DTS + `qcom-cdc` non fait |
-| **Veille / suspend** | dépend de la batterie et des régulateurs |
+| **Veille / suspend** | seul l'écran s'éteint. Les états de repos du processeur (`cpuidle`, SPC) **figent la tablette au démarrage** : essayé et abandonné, voir « Pièges vérifiés » |
 | **Accélération graphique** | pas de KMS `msm` pour l'APQ8026 : `simpledrm` et rendu logiciel |
 | **Bluetooth** | puce présente dans le WCNSS, transport UART non déclaré |
 | **GPS, appareil photo, NFC** | non documentés pour cette révision, non testés |
-| **Capteur de luminosité** | module compilé, présence à confirmer sur la révision r04 |
+| **Capteur de luminosité** | CM3323 reconnu (`iio:device0`), pas encore exploité pour la luminosité automatique |
 | **Port série USB** | le gadget ne déclare que `ncm.usb0` ; `/dev/ttyGS0` n'existe pas |
 | **HDMI / MHL** | non pris en charge |
 
 Conséquence pratique : la batterie n'est **pas pilotée**. Il n'y a ni recharge
-contrôlée ni veille automatique, et le niveau affiché par `batterie.sh` est une
-estimation par la tension — pessimiste quand la tablette travaille, puisqu'elle
-baisse sous charge. Une batterie pleine tient **4 à 5 heures** d'écran allumé en
+contrôlée ni veille du système, et le niveau affiché par `batterie.sh` et par
+l'icône de la barre est une estimation par la tension — pessimiste quand la
+tablette travaille, puisqu'elle baisse sous charge, et sans signification
+pendant la charge. Éteindre l'écran (Power) reste le geste qui économise le plus. Une batterie pleine tient **4 à 5 heures** d'écran allumé en
 usage bureautique/VNC.
 
 ---
@@ -185,6 +190,8 @@ WSL), puis, **sur la tablette** :
 ```sh
 sudo sh inject/maj-locale.sh
 sudo sh inject/maj-clavier.sh
+sudo sh inject/maj-energie.sh       # ecran, Power, luminosite, batterie, touches
+sudo sh inject/maj-interface.sh     # theme Nura et tailles au doigt
 sudo reboot
 ```
 
@@ -200,6 +207,16 @@ sur 245 px de haut, collée en bas (kitty en 25×25 pixels, Claude Code tronqué
 Le script remplace `dock-keyboard.sh` par la version qui retire cette réserve ;
 le fichier précédent est gardé en `.avant-strut`. Sans lui, les fenêtres restent
 minuscules — c'est la première chose à appliquer sur une tablette en 1.0.1.
+
+`maj-energie.sh` installe la gestion de l'écran, du bouton marche, de la
+luminosité et de la batterie (service `nura-energie`) et les touches du bas. Il
+faut Internet : il installe `xprintidle`, `yad`, `xmessage`, `i2c-tools` et
+`python3-tkinter`. Fichiers remplacés gardés en `.avant-energie`.
+
+`maj-interface.sh` pose le thème **Nura** et les tailles au doigt, puis relance
+IceWM. Fichiers remplacés gardés en `.avant-tactile`.
+
+Aucun de ces scripts ne touche au noyau ni au démarrage (`/boot`).
 
 À ne pas confondre : `inject.sh` travaille sur le **fichier image**, sur
 l'ordinateur, pour fabriquer une image neuve. Lancé sur une tablette allumée, il
@@ -328,7 +345,43 @@ réponse est `Invalid API key · Please run /login`.
 Le terminal utilisé est **xterm** : kitty démarre lentement ici et n'apporte
 rien sur un écran de 8 pouces.
 
+### Écran, bouton marche et luminosité
+
+| Geste | Effet |
+|---|---|
+| **Power**, appui court | éteindre l'écran ; un nouvel appui (ou **Accueil**) le rallume |
+| **Power**, appui long (5 s) | arrêt propre de la tablette |
+| **Vol Haut / Vol Bas** | luminosité, avec une barre « Luminosité NN % » à l'écran |
+| 3 minutes sans toucher | l'écran s'éteint tout seul |
+| Menu **Écran** | « Éteindre l'écran », luminosité +, −, 25 %, 50 %, 100 % |
+
+Écran éteint, la dalle tactile est désactivée : un appui sur l'écran ne déclenche
+rien par mégarde. Les réglages (délai, réveil au toucher, seuils de batterie)
+sont dans `/etc/nura/energie.conf` ; après modification,
+`sudo systemctl restart nura-energie`. En ligne de commande :
+`luminosite.sh plus | moins | 50% | etat`.
+
+### Touches du bas
+
+| Touche | Effet |
+|---|---|
+| **Accueil** | afficher le bureau (un second appui ramène les fenêtres) |
+| **Menu** | menu principal d'IceWM |
+| **Retour** | page précédente (Alt+Gauche) dans Firefox et NetSurf |
+
+Ce sont des raccourcis IceWM (`~/.icewm/keys`) : on peut les changer sans rien
+recompiler.
+
+### Batterie
+
+L'icône à droite de la barre des tâches donne le niveau estimé (toucher l'icône
+ouvre le détail de `batterie.sh`). À 15 % une alerte s'affiche ; à 3 %, confirmé
+pendant 3 minutes, la tablette s'éteint proprement après un compte à rebours de
+60 secondes, sauf si la tension remonte (chargeur branché).
+
 ### Éteindre proprement
+
+Appui long (5 s) sur **Power**, l'entrée **Éteindre** du menu, ou :
 
 ```sh
 sudo poweroff
@@ -382,8 +435,9 @@ pmaports  →  pmbootstrap install  →  inject.sh  →  prepare-image-publique.
 
 - `pmaports/` : le patch DTS, la config noyau, le paquet device.
 - `inject/` : ce qui est copié dans l'image (scripts, unités systemd, réglages).
-- `outils/` : fabrication de l'image publiable, flashage vérifié, et
-  `installe-claude-code.sh` (Claude Code sur la tablette).
+- `outils/` : fabrication de l'image publiable, flashage vérifié,
+  `installe-claude-code.sh` (Claude Code sur la tablette) et
+  `genere-theme-nura.py` (boutons du thème Nura).
 
 ### Les trois difficultés du portage
 
@@ -403,12 +457,14 @@ pmaports  →  pmbootstrap install  →  inject.sh  →  prepare-image-publique.
 
 ```
 pmaports/     patch DTS (558 lignes), config noyau, paquet device, firmware WCNSS
-inject/       le payload (54 fichiers) : scripts, unités systemd, configurations,
-              plus inject.sh (fabrication de l'image), maj-locale.sh et
-              maj-clavier.sh (mise à jour d'une tablette en marche), outils
+inject/       le payload (74 fichiers) : scripts, unités systemd, configurations,
+              thème IceWM Nura, plus inject.sh (fabrication de l'image) et les
+              mises à jour d'une tablette en marche (maj-locale.sh,
+              maj-clavier.sh, maj-energie.sh, maj-interface.sh), outils
               Python du DTS
 outils/       prepare-image-publique.sh, flash-userdata.sh,
-              installe-claude-code.sh (Claude Code en terminal)
+              installe-claude-code.sh (Claude Code en terminal),
+              genere-theme-nura.py (boutons du thème Nura, taille au choix)
 docs/         installation, premier démarrage, utilisation, développement,
               connaissances brutes du chantier (CONNAISSANCES.md), état final
 ```
@@ -437,6 +493,39 @@ x11-diag.sh            # X, sortie, rotation, tactile, VNC, clavier
 wifi.sh debug          # supplicant, réseaux vus
 systemctl --failed     # doit être vide
 ```
+
+### Pièges vérifiés (22 et 23 octobre 2026)
+
+Constatés sur la tablette elle-même, à connaître avant d'y toucher :
+
+- **Le rétroéclairage ignorait toute luminosité.** Le device tree configure la
+  LP8556 avec `dev-ctrl = 0x80`, soit `BRT_MODE = 00` (« entrée PWM seulement ») :
+  la puce ignore son registre de luminosité, que le pilote `lp855x` écrit
+  pourtant (`bl_ctl_mode = register based`). `luminosite.sh init`, lancé par
+  `nura-energie.service`, écrit `0x85` dans le registre `0x01` par I²C (bus lu
+  dans sysfs), à chaque démarrage puisque le device tree remet `0x80`.
+- **`bl_power` n'éteint pas l'écran** : `lp855x` ne regarde que l'état
+  « fbblank ». L'extinction passe donc par une luminosité 0.
+- **systemd-logind éteint la tablette au moindre appui sur Power** (réglage par
+  défaut) : `etc/systemd/logind.conf.d/50-nura-bouton-marche.conf` le remplace
+  par `HandlePowerKey=ignore` et `HandlePowerKeyLongPress=poweroff`.
+- **IceWM 4.1 ignore les anciens noms d'options** (`IconSize`, `TaskBarFontName`,
+  `TitleFontName`…), et le thème impose sa hauteur de barre de titre : les
+  tailles au doigt passent par `~/.icewm/prefoverride`, lu après le thème.
+- **`cpuidle` fige la tablette.** Déclarer l'état `qcom,idle-state-spc` sur les
+  quatre cœurs (valeurs du msm8974 : 150/200/2000 µs) donne une tablette bloquée
+  sur la mire Samsung + « lk2nd-msm8226 », alors que `spm.c` gère bien
+  `qcom,msm8226-saw2-v2.1-cpu`. Ne pas réessayer sans moyen de retour éprouvé.
+- **Le mode fastboot de lk2nd n'est pas vu par le PC** sur cette tablette
+  (aucun périphérique USB, même avec un câble qui marche en mode download) :
+  pas de `fastboot boot` de secours.
+- **Heimdall efface tout `USERDATA`** avant d'écrire, même si le fichier envoyé
+  est plus court : réécrire seulement `/boot` (les 488 premiers Mo) a fait perdre
+  la partition système. Toute écriture de `USERDATA` est un reflash complet.
+
+Conséquence pour qui modifie le démarrage (`/boot`, device tree, noyau) : prévoir
+le retour arrière **dans le système lui-même**, ne compter ni sur fastboot ni sur
+une écriture partielle.
 
 ---
 
@@ -499,10 +588,17 @@ What works: mainline Linux 6.16.12 boot (lk2nd → extlinux), X11 + IceWM on
 `simpledrm`, Synaptics touchscreen with rotation-aware calibration, on-screen
 QWERTY/AZERTY keyboard, Wi-Fi (WPA2/WPA3, WCNSS firmware harvested from the
 device's own partitions), USB networking (172.16.42.1), VNC, SSH, automatic USB
-storage mounting, and a first-boot setup assistant.
+storage mounting, and a first-boot setup assistant. Power management in user
+space: screen blanking after inactivity, Power key toggles the screen (long press
+= clean shutdown), Vol keys set the backlight (LP8556 switched to register mode
+over I²C) with an on-screen bar, Home/Menu/Back keys mapped, voltage-based
+battery estimate with tray icon and clean shutdown when empty, and a
+finger-friendly IceWM theme ("Nura", 40 px title buttons).
 
 What does not work: battery/charging (MAX77804K has no mainline driver), audio
-(MAX98504), suspend, GPU acceleration, Bluetooth, GPS, camera, NFC, USB serial.
+(MAX98504), suspend (SPC cpuidle states hang the boot), GPU acceleration,
+Bluetooth, GPS, camera, NFC, USB serial. Beware: Heimdall wipes the whole
+USERDATA partition, and lk2nd's fastboot mode is not seen by the host.
 
 Install: flash `lk2nd-rubens.img` to `BOOT` once, then the system image to
 `USERDATA` with Heimdall. See [docs/INSTALLATION.md](docs/INSTALLATION.md).
