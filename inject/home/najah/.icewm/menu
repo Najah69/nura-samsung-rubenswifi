@@ -28,6 +28,11 @@ menu "Fichiers" folder {
 	prog "Terminal (xterm, leger)" /usr/share/pixmaps/xterm-color_32x32.xpm xterm
 }
 
+menu "Son" folder {
+	prog "Bluetooth : appairer une enceinte" folder blueman-manager
+	prog "Volume et sortie du son" folder pavucontrol
+}
+
 menu "Ecran" folder {
 	prog "Paysage 1280x800" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh paysage
 	prog "Portrait 800x1280" /usr/share/pixmaps/orientation.xpm /usr/local/bin/orientation.sh portrait

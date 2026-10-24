@@ -135,6 +135,25 @@ install_file etc/systemd/system/clavier-virtuel.service   etc/systemd/system/cla
 install_file etc/systemd/system/nura-grandit-racine.service etc/systemd/system/nura-grandit-racine.service 644
 install_file etc/systemd/system/nura-energie.service etc/systemd/system/nura-energie.service 644
 install_file etc/modules-load.d/usb-gadget.conf     etc/modules-load.d/usb-gadget.conf     644
+# Son par Bluetooth : PipeWire tourne pour root (le bureau est en root), le
+# bureau retrouve son serveur de son, WirePlumber active le Bluetooth sans siege.
+for u in pipewire.socket pipewire.service pipewire-pulse.socket pipewire-pulse.service wireplumber.service; do
+	install_file "etc/systemd/user/$u.d/50-nura-root.conf" "etc/systemd/user/$u.d/50-nura-root.conf" 644
+done
+install_file etc/wireplumber/wireplumber.conf.d/50-nura-bluetooth.conf \
+            etc/wireplumber/wireplumber.conf.d/50-nura-bluetooth.conf 644
+install_file etc/systemd/system/x11-icewm.service.d/50-nura-son.conf \
+            etc/systemd/system/x11-icewm.service.d/50-nura-son.conf 644
+# Gestionnaire utilisateur de root lance au demarrage (equivaut a enable-linger).
+mkdir -p "$M/var/lib/systemd/linger"
+touch "$M/var/lib/systemd/linger/root" && ok "linger root"
+if [ -f "$M/etc/bluetooth/main.conf" ]; then
+	sed -i 's/^#\?AutoEnable=.*/AutoEnable=true/' "$M/etc/bluetooth/main.conf"
+	grep -q '^AutoEnable=true' "$M/etc/bluetooth/main.conf" && ok "bluetooth : AutoEnable=true" ||
+		warn "AutoEnable absent de bluetooth/main.conf"
+else
+	warn "bluez absent de l'image (paquet device trop ancien ?)"
+fi
 mkdir -p "$M/root/.vnc"
 chmod 700 "$M/root/.vnc"
 
@@ -149,6 +168,9 @@ enable_unit sshd.service
 enable_unit NetworkManager.service
 enable_unit msm-firmware-loader.service sysinit.target
 enable_unit wcnss-firmware.service sysinit.target
+enable_unit bluetooth.service
+[ -f "$M/usr/lib/systemd/system/bluetooth.service" ] &&
+	ln -sf /usr/lib/systemd/system/bluetooth.service "$M/etc/systemd/system/dbus-org.bluez.service"
 # Console serie sur la fonction ACM du gadget (secours si RNDIS echoue).
 mkdir -p "$M/etc/systemd/system/getty.target.wants"
 if [ -f "$M/usr/lib/systemd/system/serial-getty@.service" ] ||
@@ -217,6 +239,9 @@ for f in prefoverride theme keys; do
 	install_file "home/najah/.icewm/$f" "home/najah/.icewm/$f" 644
 	cp "$SRC/home/najah/.icewm/$f" "$M/root/.icewm/$f" && chmod 644 "$M/root/.icewm/$f" && ok "root/.icewm/$f"
 done
+# Programmes lances avec le bureau : icone Bluetooth.
+install_file home/najah/.icewm/startup home/najah/.icewm/startup 755
+cp "$SRC/home/najah/.icewm/startup" "$M/root/.icewm/startup" && chmod 755 "$M/root/.icewm/startup" && ok "root/.icewm/startup"
 
 echo "--- editeur et pager par defaut ---"
 install_file etc/profile.d/editor.sh etc/profile.d/editor.sh 644
@@ -330,7 +355,8 @@ echo
 echo "=== verification : unites activees ==="
 for u in x11-icewm.service usb-gadget.service x11vnc.service NetworkManager.service \
          msm-firmware-loader.service wcnss-firmware.service wpa-wlan0.service \
-         wifi-dhcp.service sshd.service serial-getty@ttyGS0.service nura-energie.service; do
+         wifi-dhcp.service sshd.service serial-getty@ttyGS0.service nura-energie.service \
+         bluetooth.service; do
 	found=$(find "$M/etc/systemd/system" -maxdepth 2 -name "$u" -type l 2>/dev/null | head -1)
 	if [ -n "$found" ]; then printf '  ok       %s\n' "${found#"$M"}"
 	else printf '  ABSENT   %s\n' "$u"; fi
@@ -357,7 +383,11 @@ for f in root/.xinitrc root/.icewm/preferences root/.icewm/menu home/najah/.icew
          usr/local/bin/nura-energie usr/local/bin/luminosite.sh \
          etc/systemd/logind.conf.d/50-nura-bouton-marche.conf \
          root/.icewm/prefoverride root/.icewm/theme root/.icewm/keys \
-         usr/share/icewm/themes/Nura/default.theme; do
+         usr/share/icewm/themes/Nura/default.theme \
+         root/.icewm/startup var/lib/systemd/linger/root \
+         etc/wireplumber/wireplumber.conf.d/50-nura-bluetooth.conf \
+         etc/systemd/user/pipewire.service.d/50-nura-root.conf \
+         etc/systemd/system/x11-icewm.service.d/50-nura-son.conf; do
 	if [ -e "$M/$f" ]; then
 		printf '  present  %-46s %s\n' "$f" "$(stat -c '%s o, mode %a' "$M/$f")"
 	else

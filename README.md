@@ -99,7 +99,7 @@ l'assistant de premier démarrage.
 | Touches du bas | **Accueil** = bureau, **Menu** = menu principal, **Retour** = page précédente |
 | Usage au doigt | thème **Nura** : barres de titre et boutons de 40 px (fermer en rouge), icônes de 32 px, polices agrandies |
 | Batterie | niveau **estimé** par la tension, icône dans la barre, alerte à 15 %, arrêt propre à 3 % |
-| Son ? | voir ci-dessous : non |
+| Son par Bluetooth | enceinte ou casque Bluetooth (A2DP), icône d'appairage dans la barre, menu **Son** — **lecture seulement**, le micro Bluetooth ne marche pas |
 | Paquets | `apk add` fonctionne, `gcc`, `git`, `python3`, `nano`, `mc` disponibles |
 | Navigateurs | `netsurf` par défaut, `firefox` en secours sur les sites modernes |
 
@@ -108,10 +108,10 @@ l'assistant de premier démarrage.
 | | Cause |
 |---|---|
 | **Batterie / charge** | le chargeur est un **MAX77804K**, sans pilote mainline : pas de recharge pilotée, pas de jauge. Le niveau est **estimé** par la tension (`batterie.sh`, icône de la barre), ce qui suffit à ne pas tomber en panne mais pas à une jauge fiable |
-| **Son** | ampli **MAX98504**, routage propre à Samsung : travail DTS + `qcom-cdc` non fait |
+| **Son interne** (haut-parleur, micros, prise casque) | tout passe par le codec **WCD9306** « Tapan » sur SLIMbus, **sans pilote mainline**. L'ampli MAX98504 que citent les sources Samsung est **absent** de cette tablette (bus I²C sondé) |
+| **Micro Bluetooth** (mode mains libres) | la liaison voix s'établit, mais la puce envoie la voix au processeur audio (ADSP) et **aucun paquet** n'arrive à Linux |
 | **Veille / suspend** | seul l'écran s'éteint. Les états de repos du processeur (`cpuidle`, SPC) **figent la tablette au démarrage** : essayé et abandonné, voir « Pièges vérifiés » |
 | **Accélération graphique** | pas de KMS `msm` pour l'APQ8026 : `simpledrm` et rendu logiciel |
-| **Bluetooth** | puce présente dans le WCNSS, transport UART non déclaré |
 | **GPS, appareil photo, NFC** | non documentés pour cette révision, non testés |
 | **Capteur de luminosité** | CM3323 reconnu (`iio:device0`), pas encore exploité pour la luminosité automatique |
 | **Port série USB** | le gadget ne déclare que `ncm.usb0` ; `/dev/ttyGS0` n'existe pas |
@@ -192,6 +192,7 @@ sudo sh inject/maj-locale.sh
 sudo sh inject/maj-clavier.sh
 sudo sh inject/maj-energie.sh       # ecran, Power, luminosite, batterie, touches
 sudo sh inject/maj-interface.sh     # theme Nura et tailles au doigt
+sudo sh inject/maj-bluetooth.sh     # son par Bluetooth (enceinte, casque)
 sudo reboot
 ```
 
@@ -215,6 +216,10 @@ faut Internet : il installe `xprintidle`, `yad`, `xmessage`, `i2c-tools` et
 
 `maj-interface.sh` pose le thème **Nura** et les tailles au doigt, puis relance
 IceWM. Fichiers remplacés gardés en `.avant-tactile`.
+
+`maj-bluetooth.sh` installe le son par Bluetooth : BlueZ, PipeWire pour le
+bureau, l'icône Bluetooth et le menu **Son**. Il faut Internet. Fichiers
+remplacés gardés en `.avant-bluetooth`.
 
 Aucun de ces scripts ne touche au noyau ni au démarrage (`/boot`).
 
@@ -379,6 +384,30 @@ ouvre le détail de `batterie.sh`). À 15 % une alerte s'affiche ; à 3 %, confi
 pendant 3 minutes, la tablette s'éteint proprement après un compte à rebours de
 60 secondes, sauf si la tension remonte (chargeur branché).
 
+### Son par Bluetooth
+
+La tablette n'a pas de son interne (voir plus haut), mais elle joue sur une
+enceinte ou un casque Bluetooth.
+
+1. Mettez l'enceinte en **mode appairage** (en général, appui long sur son bouton
+   Bluetooth).
+2. Touchez l'**icône Bluetooth** de la barre des tâches (ou menu **Son** →
+   « Bluetooth : appairer une enceinte »), puis **Rechercher**.
+3. Choisissez l'enceinte et **Associer**, puis **Connecter**.
+
+L'enceinte est ensuite mémorisée et se reconnecte d'elle-même. Volume et choix
+de la sortie : menu **Son** → « Volume et sortie du son » (pavucontrol). En
+ligne de commande :
+
+```sh
+bluetoothctl devices                 # appareils connus
+bluetoothctl connect AA:BB:CC:DD:EE:FF
+paplay fichier.wav                   # jouer un son
+```
+
+Le micro de l'enceinte ou du casque ne fonctionne pas : la tablette ne reçoit
+rien en mode mains libres.
+
 ### Éteindre proprement
 
 Appui long (5 s) sur **Power**, l'entrée **Éteindre** du menu, ou :
@@ -457,10 +486,11 @@ pmaports  →  pmbootstrap install  →  inject.sh  →  prepare-image-publique.
 
 ```
 pmaports/     patch DTS (558 lignes), config noyau, paquet device, firmware WCNSS
-inject/       le payload (74 fichiers) : scripts, unités systemd, configurations,
+inject/       le payload (83 fichiers) : scripts, unités systemd, configurations,
               thème IceWM Nura, plus inject.sh (fabrication de l'image) et les
               mises à jour d'une tablette en marche (maj-locale.sh,
-              maj-clavier.sh, maj-energie.sh, maj-interface.sh), outils
+              maj-clavier.sh, maj-energie.sh, maj-interface.sh,
+              maj-bluetooth.sh), outils
               Python du DTS
 outils/       prepare-image-publique.sh, flash-userdata.sh,
               installe-claude-code.sh (Claude Code en terminal),
@@ -527,6 +557,37 @@ Conséquence pour qui modifie le démarrage (`/boot`, device tree, noyau) : pré
 le retour arrière **dans le système lui-même**, ne compter ni sur fastboot ni sur
 une écriture partielle.
 
+### Pièges vérifiés : son et Bluetooth (24 octobre 2026)
+
+- **PipeWire refuse root.** Ses unités utilisateur portent
+  `ConditionUser=!root` ; or le bureau tourne en root. Les fichiers
+  `etc/systemd/user/*.d/50-nura-root.conf` remettent la condition à zéro, et
+  `loginctl enable-linger root` démarre le gestionnaire utilisateur de root sans
+  connexion.
+- **WirePlumber n'active le Bluetooth que pour un siège logind actif** : la
+  session X, lancée par un service, n'en a pas.
+  `monitor.bluez.seat-monitoring = disabled` (dans
+  `etc/wireplumber/wireplumber.conf.d/`) lève cette condition.
+- **`bluetoothctl pair` sans agent échoue** (« Connection refused ») : il faut
+  un agent (`agent NoInputNoOutput` puis `default-agent` dans une session
+  `bluetoothctl`, ou l'applet Blueman).
+- **Le micro Bluetooth ne passera pas par Linux.** En mode mains libres, la
+  liaison eSCO (CVSD) s'établit, mais `btmon` ne voit **aucun** paquet SCO : la
+  puce du WCNSS route la voix vers l'ADSP par son interface audio. Le pilote
+  `btqcomsmd` n'a pas de moyen documenté de la faire passer par HCI.
+- **Pas de MAX98504.** Le bus I²C n° 6 (GPIO 22/23, celui des sources Samsung)
+  activé dans le device tree est sain (lignes à l'état haut, refus immédiats),
+  mais **aucune** adresse ne répond, ni `0x31`. Le code Samsung du MAX98504 est
+  commun à plusieurs tablettes msm8226 ; sur la T360 Wi-Fi, le haut-parleur
+  dépend du WCD9306 seul.
+- **L'ADSP démarre** avec un noyau de test (QDSP6/APR en modules) : son
+  firmware est sur la partition `modem` (`/image/adsp.mdt`), il se charge à la
+  main par `remoteproc` et le service `q6core` répond. C'est le préalable à un
+  futur pilote du WCD9306, pas encore du son.
+- **`kexec` ne marche pas** sur cette tablette : refusé sur 4 cœurs (pas de
+  `cpu_kill` pour le msm8226), et bloqué après l'arrêt avec `nr_cpus=1`. On ne
+  peut donc pas essayer un noyau ou un device tree sans redémarrer pour de bon.
+
 ---
 
 ## Contribuer
@@ -535,8 +596,9 @@ Les contributions les plus utiles, dans l'ordre :
 
 1. **un pilote `power_supply` pour le MAX77804K** (batterie et charge) — c'est le
    chaînon manquant le plus important ;
-2. l'audio (MAX98504 + routage DTS) ;
-3. le Bluetooth ;
+2. le son interne : un pilote du codec **WCD9306** sur SLIMbus (l'ADSP démarre
+   déjà) ;
+3. le micro Bluetooth (voix SCO par HCI au lieu de l'ADSP) ;
 4. la vérification du capteur de luminosité et du signe de l'accéléromètre ;
 5. la proposition du paquet device à pmaports, pour que ce portage devienne
    officiel.
@@ -593,11 +655,13 @@ space: screen blanking after inactivity, Power key toggles the screen (long pres
 = clean shutdown), Vol keys set the backlight (LP8556 switched to register mode
 over I²C) with an on-screen bar, Home/Menu/Back keys mapped, voltage-based
 battery estimate with tray icon and clean shutdown when empty, and a
-finger-friendly IceWM theme ("Nura", 40 px title buttons).
+finger-friendly IceWM theme ("Nura", 40 px title buttons). Sound plays through
+a Bluetooth speaker or headset (BlueZ + PipeWire, A2DP).
 
-What does not work: battery/charging (MAX77804K has no mainline driver), audio
-(MAX98504), suspend (SPC cpuidle states hang the boot), GPU acceleration,
-Bluetooth, GPS, camera, NFC, USB serial. Beware: Heimdall wipes the whole
+What does not work: battery/charging (MAX77804K has no mainline driver), internal
+audio (WCD9306 codec on SLIMbus, no mainline driver; the MAX98504 amp is not
+fitted), Bluetooth microphone (SCO voice is routed to the ADSP, never reaches
+HCI), suspend (SPC cpuidle states hang the boot), GPU acceleration, GPS, camera, NFC, USB serial. Beware: Heimdall wipes the whole
 USERDATA partition, and lk2nd's fastboot mode is not seen by the host.
 
 Install: flash `lk2nd-rubens.img` to `BOOT` once, then the system image to

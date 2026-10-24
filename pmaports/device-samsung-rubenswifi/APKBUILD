@@ -3,7 +3,7 @@ maintainer="Najah <najah@users.noreply.github.com>"
 pkgname=device-samsung-rubenswifi
 pkgdesc="Samsung Galaxy Tab Active 8.0 Wi-Fi"
 pkgver=1
-pkgrel=4
+pkgrel=5
 url="https://postmarketos.org"
 license="MIT"
 arch="armv7"
@@ -45,6 +45,15 @@ depends="
 	xmessage
 	xprintidle
 	yad
+	blueman
+	bluez
+	bluez-btmon
+	pavucontrol
+	pipewire
+	pipewire-alsa
+	pipewire-pulse
+	pipewire-spa-bluez
+	wireplumber
 	"
 makedepends="devicepkg-dev"
 source="deviceinfo kernel-cmdline.conf modules-initfs"

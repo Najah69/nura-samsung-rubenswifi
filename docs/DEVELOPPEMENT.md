@@ -400,14 +400,18 @@ Contributions bienvenues, dans l'ordre d'utilité :
    mainline. Sans lui, aucun `/sys/class/power_supply`, donc pas d'indicateur ni
    de veille propre. Un pilote `power_supply` + `extcon` serait le plus gros
    apport possible.
-2. **Audio** : la carte `msm8226` existe en mainline, mais l'ampli est un
-   **MAX98504** et le routage est propre à Samsung (DTS + `qcom-cdc`).
+2. **Audio** : haut-parleur, micros et prise casque passent par le codec
+   **WCD9306** « Tapan » sur SLIMbus, sans pilote mainline. Le MAX98504 des
+   sources Samsung est absent de cette tablette (bus I²C n° 6 sondé : aucune
+   réponse). L'ADSP démarre déjà (firmware `modem:/image/adsp.mdt`, QDSP6/APR,
+   `q6core` répond) : voir les « Pièges vérifiés » du README.
 3. **GPU** : `msm`/freedreno 2D-3D sur APQ8026 demande le support DRM msm8226,
    absent. `simpledrm` + rendu logiciel restera la règle en attendant.
 4. **Veille** : rien de sérieux sans `power_supply` ni gestion fine des
    régulateurs.
-5. **Bluetooth** : la puce est dans le WCNSS mais le transport (UART + `rfkill`)
-   n'est pas déclaré.
+5. **Micro Bluetooth** : la lecture marche (A2DP, `maj-bluetooth.sh`), mais en
+   mode mains libres la voix SCO est routée vers l'ADSP et n'arrive jamais par
+   HCI (`btmon` : aucun paquet).
 6. **Capteurs** : vérifier le signe de `in_accel_z` et l'existence du capteur de
    luminosité sur la révision r04.
 7. **Portage amont** : proposer le paquet device à pmaports (voir

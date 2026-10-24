@@ -1,5 +1,28 @@
 # Journal des versions
 
+## Son par Bluetooth — 24 octobre 2026
+
+S'installe sur une tablette en marche (`inject/maj-bluetooth.sh`), sans
+reflasher ni toucher au démarrage, et entre dans la prochaine image
+(`inject.sh`, paquet device `pkgrel=5`). Vérifié sur la tablette avec une
+enceinte Philips SB300.
+
+- **Son sur enceinte ou casque Bluetooth** (A2DP, codec SBC) : BlueZ, PipeWire,
+  WirePlumber et `pipewire-pulse`, adaptateur allumé au démarrage
+  (`AutoEnable=true`).
+- **PipeWire tourne pour root**, puisque le bureau tourne en root : conditions
+  `ConditionUser=!root` levées (`etc/systemd/user/*.d/50-nura-root.conf`),
+  gestionnaire utilisateur de root lancé au démarrage (linger), surveillance du
+  siège logind coupée pour le Bluetooth
+  (`etc/wireplumber/wireplumber.conf.d/50-nura-bluetooth.conf`), et le bureau
+  retrouve le serveur de son (`x11-icewm.service.d/50-nura-son.conf`).
+- **Icône Bluetooth** (Blueman) lancée avec le bureau (`~/.icewm/startup`), et
+  menu **Son** : appairer une enceinte, volume et sortie du son (pavucontrol).
+- **Limites mesurées et documentées** (README, « Pièges vérifiés : son et
+  Bluetooth ») : micro Bluetooth inutilisable (la voix va à l'ADSP, aucun paquet
+  SCO sur HCI), ampli MAX98504 absent, son interne dépendant du codec WCD9306
+  sans pilote, ADSP démarré avec un noyau de test, `kexec` inutilisable.
+
 ## Énergie, touches et usage au doigt — 23 octobre 2026
 
 Tout s'installe sur une tablette en marche (`inject/maj-energie.sh`,

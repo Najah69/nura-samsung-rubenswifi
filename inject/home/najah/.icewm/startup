@@ -1,0 +1,4 @@
+#!/bin/sh
+# Nura : programmes lances avec le bureau.
+# Icone Bluetooth (appairage enceinte, casque)
+blueman-applet >/dev/null 2>&1 &
